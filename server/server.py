@@ -3,6 +3,10 @@ import json
 import sys
 import signal
 import threading
+import logging
+
+lock = threading.Lock()
+logging.basicConfig(level=logging.INFO)
 
 
 def read_json_file(filename):
@@ -11,7 +15,7 @@ def read_json_file(filename):
     return data
 
 
-def send_file_to_client(client_socket, filename):
+def send_file_to_client(server_socket, client_socket, filename, connected_clients, client_ips):
     file_sent = False
     with open(filename, 'rb') as file:
         while True:
@@ -20,59 +24,78 @@ def send_file_to_client(client_socket, filename):
                 file_sent = True
                 break
             client_socket.sendall(data)
-    client_socket.close()
+
     if file_sent:
-        print(f"File {filename} sent to client {client_socket.getpeername()[0]}")
+        logging.info(f"File {filename} sent to client {client_socket.getpeername()[0]}")
+    client_socket.close()
+    with lock:
+        if connected_clients == client_ips:
+            logging.info("All clients connected. Closing server socket")
+            server_socket.close()
 
 
 def signal_handler(sig, frame):
-    print("Gracefully shutting down")
+    logging.info("Gracefully shutting down")
     sys.exit(0)
 
 
-def client_handler(client_socket, addr, client_ips, connected_clients):
+def client_handler(server_socket, client_socket, addr, client_ips, connected_clients):
     if addr[0] in client_ips:
-        print(f"Connected with {addr[0]}")
-        send_file_to_client(client_socket, './server/master_config.json')
+        logging.info(f"Connected with {addr[0]}")
         connected_clients.add(addr[0])
+        send_file_to_client(server_socket, client_socket, './server/master_config.json', connected_clients, client_ips)
     else:
         client_socket.close()
 
 
-def start_server():
-    signal.signal(signal.SIGINT, signal_handler)
-    ip_list = read_json_file('./server/ip_list.json')
-    server_ip = ip_list['server_ip']
-    server_port = ip_list['server_port']
-    client_ips = set(ip_list['client'])
+class Server:
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        server_socket.bind((server_ip, server_port))
-    except socket.error as e:
-        print(f"Error on socket bind: {e}")
-        sys.exit(1)
+    def start_server(self):
+        signal.signal(signal.SIGINT, signal_handler)
+        ip_list = read_json_file('./server/ip_list.json')
+        server_ip = ip_list['server_ip']
+        server_port = ip_list['server_port']
+        client_ips = set(ip_list['client'])
 
-    try:
-        server_socket.listen(5)
-        print(f"Listening on {server_ip}:{server_port}")
-    except socket.error as e:
-        print(f"Error on socket listen: {e}")
-        sys.exit(1)
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.settimeout(1)  # Set a timeout on accept()
+        try:
+            server_socket.bind((server_ip, server_port))
+        except socket.error as e:
+            logging.info(f"Error on socket bind: {e}")
+            sys.exit(1)
 
-    connected_clients = set()
+        try:
+            server_socket.listen(10)
+            logging.info(f"Listening on {server_ip}:{server_port}")
+        except socket.error as e:
+            logging.info(f"Error on socket listen: {e}")
+            sys.exit(1)
 
-    try:
-        while True:
-            client_socket, addr = server_socket.accept()
-            print(f"Accepted connection from {addr[0]}")
-            client_thread = threading.Thread(target=client_handler,
-                                             args=(client_socket, addr, client_ips, connected_clients))
-            client_thread.start()
+        connected_clients = set()
 
-    finally:
-        server_socket.close()
-
-
-if __name__ == "__main__":
-    start_server()
+        try:
+            while True:
+                try:
+                    client_socket, addr = server_socket.accept()
+                    logging.info(f"Accepted connection from {addr[0]}")
+                    client_thread = threading.Thread(target=client_handler,
+                                                     args=(server_socket, client_socket, addr,
+                                                           client_ips, connected_clients))
+                    client_thread.start()
+                except socket.timeout:
+                    with lock:
+                        if connected_clients == client_ips:
+                            logging.info("Closing after timeout.")
+                            break
+                        else:
+                            continue
+                except socket.error as e:
+                    if e.errno == 9:  # Bad file descriptor
+                        logging.info("Server socket closed. Exiting accept loop.")
+                        break
+                    else:
+                        raise
+        except socket.error as e:
+            logging.info(f"Error on socket accept: {e}")
+            sys.exit(1)
