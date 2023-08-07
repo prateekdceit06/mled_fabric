@@ -15,19 +15,20 @@ def read_json_file(filename):
     return data
 
 
-def send_file_to_client(server_socket, client_socket, filename, connected_clients, client_ips):
-    file_sent = False
+def send_file_to_client(client_socket, filename):
     with open(filename, 'rb') as file:
-        while True:
-            data = file.read(1024)
-            if not data:
-                file_sent = True
-                break
-            client_socket.sendall(data)
+        data = file.read()
+    client_socket.sendall(len(data).to_bytes(4, byteorder='big'))
+    client_socket.sendall(data)
+    logging.info(f"File {filename} sent to client {client_socket.getpeername()[0]}")
 
-    if file_sent:
-        logging.info(f"File {filename} sent to client {client_socket.getpeername()[0]}")
-    client_socket.close()
+
+def handle_client(server_socket, client_socket, addr, connected_clients, client_ips):
+    node_type = client_socket.recv(2)
+    received_char = node_type.decode('utf-8')
+    logging.info(f"Received {received_char} from client {addr[0]}")
+    filename = f"./server/node_{received_char}.py"
+    send_file_to_client(client_socket, filename)
     with lock:
         if connected_clients == client_ips:
             logging.info("All clients connected. Closing server socket")
@@ -43,7 +44,8 @@ def client_handler(server_socket, client_socket, addr, client_ips, connected_cli
     if addr[0] in client_ips:
         logging.info(f"Connected with {addr[0]}")
         connected_clients.add(addr[0])
-        send_file_to_client(server_socket, client_socket, './server/master_config.json', connected_clients, client_ips)
+        send_file_to_client(client_socket, './server/master_config.json')
+        handle_client(server_socket, client_socket, addr, connected_clients, client_ips)
     else:
         client_socket.close()
 

@@ -1,9 +1,8 @@
 {
-  "lastLayerMTU": 500,
   "seed": 123456789,
   "layers": [
     {
-      "fragmentation_factor": 2,
+      "layer_mtu": 500,
       "layer_id": 1,
       "error_model": {
         "good_to_bad": 0.5,
@@ -22,7 +21,7 @@
           "name": "1-1",
           "child": null,
           "parent": "2-1",
-          "neighbour": "1-2",
+          "neighbor": "1-2",
           "node_type": "C"
         },
         {
@@ -31,7 +30,7 @@
           "name": "1-2",
           "child": null,
           "parent": null,
-          "neighbour": "1-3",
+          "neighbor": "1-3",
           "node_type": "E"
         },
         {
@@ -40,7 +39,7 @@
           "name": "1-3",
           "child": null,
           "parent": "2-3",
-          "neighbour": "1-4",
+          "neighbor": "1-4",
           "node_type": "E"
         },
         {
@@ -49,7 +48,7 @@
           "name": "1-4",
           "child": null,
           "parent": null,
-          "neighbour": "1-5",
+          "neighbor": "1-5",
           "node_type": "E"
         },
         {
@@ -58,13 +57,13 @@
           "name": "1-5",
           "child": null,
           "parent": "2-5",
-          "neighbour": null,
+          "neighbor": null,
           "node_type": "D"
         }
       ]
     },
     {
-      "fragmentation_factor": 2,
+      "layer_mtu": 1000,
       "layer_id": 2,
       "error_model": {
         "good_to_bad": 0.5,
@@ -83,7 +82,7 @@
           "name": "2-1",
           "child": "1-1",
           "parent": "3-1",
-          "neighbour": null,
+          "neighbor": null,
           "node_type": "C"
         },
         {
@@ -92,7 +91,7 @@
           "name": "2-3",
           "child": "1-3",
           "parent": null,
-          "neighbour": null,
+          "neighbor": null,
           "node_type": "E"
         },
         {
@@ -101,13 +100,13 @@
           "name": "2-5",
           "child": "1-5",
           "parent": "3-5",
-          "neighbour": null,
+          "neighbor": null,
           "node_type": "D"
         }
       ]
     },
     {
-      "fragmentation_factor": 1,
+      "layer_mtu": 2000,
       "layer_id": 3,
       "error_model": {
         "good_to_bad": 0.5,
@@ -126,7 +125,7 @@
           "name": "3-1",
           "child": "2-1",
           "parent": null,
-          "neighbour": null,
+          "neighbor": null,
           "node_type": "A"
         },
         {
@@ -135,7 +134,7 @@
           "name": "3-5",
           "child": "2-5",
           "parent": null,
-          "neighbour": null,
+          "neighbor": null,
           "node_type": "B"
         }
       ]
