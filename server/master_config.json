@@ -1,0 +1,144 @@
+{
+  "lastLayerMTU": 500,
+  "seed": 123456789,
+  "layers": [
+    {
+      "fragmentation_factor": 2,
+      "layer_id": 1,
+      "error_model": {
+        "good_to_bad": 0.5,
+        "bad_to_good": 0.5,
+        "error_probability_good": 0.1,
+        "error_probability_bad": 0.1
+      },
+      "error_detection_method": {
+        "method": "checksum",
+        "checksum_length": "2"
+      },
+      "nodes": [
+        {
+          "ip": "10.0.0.101",
+          "node_id": 1,
+          "name": "1-1",
+          "child": null,
+          "parent": "2-1",
+          "neighbour": "1-2",
+          "node_type": "C"
+        },
+        {
+          "ip": "10.0.0.102",
+          "node_id": 2,
+          "name": "1-2",
+          "child": null,
+          "parent": null,
+          "neighbour": "1-3",
+          "node_type": "E"
+        },
+        {
+          "ip": "10.0.0.103",
+          "node_id": 3,
+          "name": "1-3",
+          "child": null,
+          "parent": "2-3",
+          "neighbour": "1-4",
+          "node_type": "E"
+        },
+        {
+          "ip": "10.0.0.104",
+          "node_id": 4,
+          "name": "1-4",
+          "child": null,
+          "parent": null,
+          "neighbour": "1-5",
+          "node_type": "E"
+        },
+        {
+          "ip": "10.0.0.105",
+          "node_id": 5,
+          "name": "1-5",
+          "child": null,
+          "parent": "2-5",
+          "neighbour": null,
+          "node_type": "D"
+        }
+      ]
+    },
+    {
+      "fragmentation_factor": 2,
+      "layer_id": 2,
+      "error_model": {
+        "good_to_bad": 0.5,
+        "bad_to_good": 0.5,
+        "error_probability_good": 0.1,
+        "error_probability_bad": 0.1
+      },
+      "error_detection_method": {
+        "method": "checksum",
+        "checksum_length": "2"
+      },
+      "nodes": [
+        {
+          "ip": "10.0.0.106",
+          "node_id": 1,
+          "name": "2-1",
+          "child": "1-1",
+          "parent": "3-1",
+          "neighbour": null,
+          "node_type": "C"
+        },
+        {
+          "ip": "10.0.0.107",
+          "node_id": 3,
+          "name": "2-3",
+          "child": "1-3",
+          "parent": null,
+          "neighbour": null,
+          "node_type": "E"
+        },
+        {
+          "ip": "10.0.0.108",
+          "node_id": 5,
+          "name": "2-5",
+          "child": "1-5",
+          "parent": "3-5",
+          "neighbour": null,
+          "node_type": "D"
+        }
+      ]
+    },
+    {
+      "fragmentation_factor": 1,
+      "layer_id": 3,
+      "error_model": {
+        "good_to_bad": 0.5,
+        "bad_to_good": 0.5,
+        "error_probability_good": 0.1,
+        "error_probability_bad": 0.1
+      },
+      "error_detection_method": {
+        "method": "checksum",
+        "checksum_length": 2
+      },
+      "nodes": [
+        {
+          "ip": "10.0.0.100",
+          "node_id": 1,
+          "name": "3-1",
+          "child": "2-1",
+          "parent": null,
+          "neighbour": null,
+          "node_type": "A"
+        },
+        {
+          "ip": "10.0.0.109",
+          "node_id": 5,
+          "name": "3-5",
+          "child": "2-5",
+          "parent": null,
+          "neighbour": null,
+          "node_type": "B"
+        }
+      ]
+    }
+  ]
+}
