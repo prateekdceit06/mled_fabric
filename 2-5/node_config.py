@@ -1,17 +1,17 @@
-
 import json
 
-
-class NodeConfig:
+class NodeConfigHandler:
     layer = dict()
     node = dict()
 
-    def write_node_config(self, config_file_path, config):
-        with open(config_file_path, 'w') as file:
-            json.dump(config, file)
-        print("Node config file created.")
+    def __init__(self, config_file_path):
+        self.config_file_path = config_file_path
 
-    def get_node_config(self, config, client_ip):
+    def write_node_config(self, config):
+        with open(self.config_file_path, 'w') as file:
+            json.dump(config, file)
+
+    def create_node_config(self, config, client_ip):
 
         for layer in config['layers']:
             for node in layer['nodes']:
@@ -25,7 +25,7 @@ class NodeConfig:
         node_config_to_write = {
             "name": self.node['name'],
             "ip": self.node['ip'],
-            "layer_id":self.layer['layer_id'],
+            "layer_id": self.layer['layer_id'],
             "node_id": self.node['node_id'],
             "child": self.node['child'],
             "parent": self.node['parent'],
@@ -37,4 +37,3 @@ class NodeConfig:
         }
 
         return node_config_to_write
-
