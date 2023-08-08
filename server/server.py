@@ -1,5 +1,7 @@
+
+from utils import read_json_file
+
 import socket
-import json
 import sys
 import signal
 import threading
@@ -10,10 +12,7 @@ lock = threading.Lock()
 logging.basicConfig(level=logging.INFO)
 
 
-def read_json_file(filename):
-    with open(filename, 'r') as file:
-        data = json.load(file)
-    return data
+
 
 
 def send_file_to_client(client_socket, file_path):
@@ -36,11 +35,11 @@ class Server:
         self.path = directory
 
     def handle_client(self, server_socket, client_socket, addr, connected_clients, client_ips):
-        node_type = client_socket.recv(2)
-        received_char = node_type.decode('utf-8')
+        process_type = client_socket.recv(2)
+        received_char = process_type.decode('utf-8')
         logging.info(f"Received {received_char} from client {addr[0]}")
-        node_tarfile_path = os.path.join(self.path, f'node_{received_char}.tar.gz')
-        send_file_to_client(client_socket, node_tarfile_path)
+        process_tarfile_path = os.path.join(self.path, f'process_{received_char}.tar.gz')
+        send_file_to_client(client_socket, process_tarfile_path)
         # with lock:
         #     if connected_clients == client_ips:
         #         logging.info("All clients connected. Closing server socket")

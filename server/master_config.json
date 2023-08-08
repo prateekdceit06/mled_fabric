@@ -14,10 +14,10 @@
         "method": "checksum",
         "checksum_length": "2"
       },
-      "nodes": [
+      "processes": [
         {
           "ip": "10.0.0.101",
-          "node_id": 1,
+          "process_id": 1,
           "name": "1-1",
           "child": null,
           "parent": "2-1",
@@ -27,11 +27,11 @@
           "parent_ip": "10.0.0.106",
           "right_neighbor_ip": "10.0.0.102",
           "left_neighbor_ip": null,
-          "node_type": "C"
+          "process_type": "C"
         },
         {
           "ip": "10.0.0.102",
-          "node_id": 2,
+          "process_id": 2,
           "name": "1-2",
           "child": null,
           "parent": null,
@@ -41,11 +41,11 @@
           "parent_ip": null,
           "right_neighbor_ip": "10.0.0.103",
           "left_neighbor_ip": "10.0.0.101",
-          "node_type": "E"
+          "process_type": "C"
         },
         {
           "ip": "10.0.0.103",
-          "node_id": 3,
+          "process_id": 3,
           "name": "1-3",
           "child": null,
           "parent": "2-3",
@@ -55,11 +55,11 @@
           "parent_ip": "10.0.0.107",
           "right_neighbor_ip": "10.0.0.104",
           "left_neighbor_ip": "10.0.0.102",
-          "node_type": "E"
+          "process_type": "E"
         },
         {
           "ip": "10.0.0.104",
-          "node_id": 4,
+          "process_id": 4,
           "name": "1-4",
           "child": null,
           "parent": null,
@@ -69,11 +69,11 @@
           "parent_ip": null,
           "right_neighbor_ip": "10.0.0.105",
           "left_neighbor_ip": "10.0.0.103",
-          "node_type": "E"
+          "process_type": "C"
         },
         {
           "ip": "10.0.0.105",
-          "node_id": 5,
+          "process_id": 5,
           "name": "1-5",
           "child": null,
           "parent": "2-5",
@@ -83,7 +83,7 @@
           "parent_ip": "10.0.0.108",
           "right_neighbor_ip": null,
           "left_neighbor_ip": "10.0.0.104",
-          "node_type": "D"
+          "process_type": "D"
         }
       ]
     },
@@ -100,10 +100,10 @@
         "method": "checksum",
         "checksum_length": "2"
       },
-      "nodes": [
+      "processes": [
         {
           "ip": "10.0.0.106",
-          "node_id": 1,
+          "process_id": 1,
           "name": "2-1",
           "child": "1-1",
           "parent": "3-1",
@@ -113,11 +113,11 @@
           "parent_ip": "10.0.0.100",
           "right_neighbor_ip": null,
           "left_neighbor_ip": null,
-          "node_type": "C"
+          "process_type": "C"
         },
         {
           "ip": "10.0.0.107",
-          "node_id": 3,
+          "process_id": 3,
           "name": "2-3",
           "child": "1-3",
           "parent": null,
@@ -127,11 +127,11 @@
           "parent_ip": null,
           "right_neighbor_ip": null,
           "left_neighbor_ip": null,
-          "node_type": "E"
+          "process_type": "E"
         },
         {
           "ip": "10.0.0.108",
-          "node_id": 5,
+          "process_id": 5,
           "name": "2-5",
           "child": "1-5",
           "parent": "3-5",
@@ -141,7 +141,7 @@
           "parent_ip": "10.0.0.109",
           "right_neighbor_ip": null,
           "left_neighbor_ip": null,
-          "node_type": "D"
+          "process_type": "D"
         }
       ]
     },
@@ -158,10 +158,10 @@
         "method": "checksum",
         "checksum_length": 2
       },
-      "nodes": [
+      "processes": [
         {
           "ip": "10.0.0.100",
-          "node_id": 1,
+          "process_id": 1,
           "name": "3-1",
           "child": "2-1",
           "parent": null,
@@ -171,11 +171,11 @@
           "parent_ip": null,
           "right_neighbor_ip": null,
           "left_neighbor_ip": null,
-          "node_type": "A"
+          "process_type": "A"
         },
         {
           "ip": "10.0.0.109",
-          "node_id": 5,
+          "process_id": 5,
           "name": "3-5",
           "child": "2-5",
           "parent": null,
@@ -185,7 +185,7 @@
           "parent_ip": null,
           "right_neighbor_ip": null,
           "left_neighbor_ip": null,
-          "node_type": "B"
+          "process_type": "B"
         }
       ]
     }
