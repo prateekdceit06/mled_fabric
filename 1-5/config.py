@@ -66,6 +66,7 @@ class ConfigClient:
         except socket.error as e:
             logging.error(f"Error closing socket: {e}")
             sys.exit(1)
+        return master_config, node_config
 
     def get_master_config(self, client_socket):
         master_config_file_path = os.path.join(self.directory, 'master_config.json')

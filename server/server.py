@@ -41,10 +41,10 @@ class Server:
         logging.info(f"Received {received_char} from client {addr[0]}")
         node_tarfile_path = os.path.join(self.path, f'node_{received_char}.tar.gz')
         send_file_to_client(client_socket, node_tarfile_path)
-        with lock:
-            if connected_clients == client_ips:
-                logging.info("All clients connected. Closing server socket")
-                server_socket.close()
+        # with lock:
+        #     if connected_clients == client_ips:
+        #         logging.info("All clients connected. Closing server socket")
+        #         server_socket.close()
 
     def client_handler(self, server_socket, client_socket, addr, client_ips, connected_clients):
         if addr[0] in client_ips:
