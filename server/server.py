@@ -46,6 +46,8 @@ class Server:
             logging.info(f"Connected with {addr[0]}")
             connected_clients.add(addr[0])
             master_config_path = os.path.join(self.path, 'master_config.json')
+            ip_list_config_path = os.path.join(self.path, 'ip_list.json')
+            send_file_to_client(client_socket, ip_list_config_path)
             send_file_to_client(client_socket, master_config_path)
             self.handle_client(server_socket, client_socket, addr, connected_clients, client_ips)
         else:
@@ -56,7 +58,8 @@ class Server:
         ip_list = utils.read_json_file(ip_list_path)
         server_ip = ip_list['server_ip']
         server_port = ip_list['server_port']
-        client_ips = set(ip_list['client'])
+        client_ips = [client["ip"] for client in ip_list["clients"]]
+
 
         server_socket = utils.create_server_socket(server_ip, server_port)
         connected_clients = set()

@@ -1,21 +1,14 @@
 from process_config import ProcessConfigHandler
 from master_config import MasterConfigHandler
+from ip_list_config import IPListConfigHandler
 import utils
 import socket
 import sys
 import os
 import logging
-import time
-import threading
+
 
 logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-
-def terminate_process_thread(terminate_event, client_socket):
-    while not terminate_event.is_set():
-        time.sleep(10)
-    logging.info("Terminating process thread")
-    client_socket.close()
 
 
 def delete_file(file_path):
@@ -34,12 +27,10 @@ class ConfigClient:
         self.client_port = client_port
         self.directory = directory
 
-    def get_config(self, terminate_event):
+    def get_config(self):
 
         client_socket = utils.create_client_socket(self.client_ip, self.client_port)
-        terminate_thread = threading.Thread(target=terminate_process_thread, args=(terminate_event, client_socket))
-        terminate_thread.daemon = True
-        terminate_thread.start()
+
 
         try:
             # Connect to the server
@@ -53,9 +44,11 @@ class ConfigClient:
 
         logging.info(f"Connected to server at {self.server_ip}:{self.server_port}")
 
+        ip_list_config = self.get_ip_list_config(client_socket)
+
         master_config, master_config_file_path = self.get_master_config(client_socket)
 
-        process_config = self.create_process_config(master_config, master_config_file_path)
+        process_config = self.create_process_config(master_config, master_config_file_path, ip_list_config)
 
         char_to_send = process_config['process_type']
 
@@ -77,10 +70,17 @@ class ConfigClient:
         master_config = utils.read_json_file(master_config_file_path)
         return master_config, master_config_file_path
 
-    def create_process_config(self, master_config, master_config_file_path):
+    def get_ip_list_config(self, client_socket):
+        ip_list_config_file_path = os.path.join(self.directory, 'ip_list.json')
+        ip_list_config_handler = IPListConfigHandler(ip_list_config_file_path)
+        ip_list_config_handler.get_ip_list_config(client_socket)
+        logging.info("Received Ip list config from server")
+        ip_list_config = utils.read_json_file(ip_list_config_file_path)
+        return ip_list_config
+    def create_process_config(self, master_config, master_config_file_path, ip_list_config):
         process_config_file_path = os.path.join(self.directory, 'process_config.json')
         process_config_handler = ProcessConfigHandler(process_config_file_path)
-        process_config = process_config_handler.create_process_config(master_config, self.client_ip)
+        process_config = process_config_handler.create_process_config(master_config, ip_list_config, self.client_ip)
         utils.write_json_file(process_config, process_config_file_path)
         logging.info("Created process config")
         delete_file(master_config_file_path)

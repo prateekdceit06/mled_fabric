@@ -1,4 +1,3 @@
-import json
 
 
 class ProcessConfigHandler:
@@ -8,9 +7,9 @@ class ProcessConfigHandler:
     def __init__(self, config_file_path):
         self.config_file_path = config_file_path
 
-    def create_process_config(self, config, client_ip):
+    def create_process_config(self, master_config, ip_list_config, client_ip):
 
-        for layer in config['layers']:
+        for layer in master_config['layers']:
             for process in layer['processes']:
                 if process['ip'] == client_ip:
                     self.process = process
@@ -19,19 +18,47 @@ class ProcessConfigHandler:
             if self.process:
                 break
 
+        clients = ip_list_config['clients']
+
+        keys = ["child", "parent", "right_neighbor", "left_neighbor"]
+
+        ip_port_dict = dict()
+
+        for key in keys:
+            if self.process[key] is not None:
+                for client in clients:
+                    if client['name'] == self.process[key]:
+                        ip_port_dict[f"{key}_ip"] = client['ip']
+                        ip_port_dict[f"{key}_port"] = client['port']
+                        break
+            else:
+                ip_port_dict[f"{key}_ip"] = None
+                ip_port_dict[f"{key}_port"] = None
+
+        port = None
+        for client in clients:
+            if client['name'] == self.process['name']:
+                port = client['port']
+                break
+
         process_config_to_write = {
             "name": self.process['name'],
             "ip": self.process['ip'],
+            "port": port,
             "layer_id": self.layer['layer_id'],
             "process_id": self.process['process_id'],
             "child": self.process['child'],
             "parent": self.process['parent'],
             "right_neighbor": self.process['right_neighbor'],
             "left_neighbor": self.process['left_neighbor'],
-            "child_ip": self.process['child_ip'],
-            "parent_ip": self.process['parent_ip'],
-            "right_neighbor_ip": self.process['right_neighbor_ip'],
-            "left_neighbor_ip": self.process['left_neighbor_ip'],
+            "child_ip": ip_port_dict['child_ip'],
+            "parent_ip": ip_port_dict['parent_ip'],
+            "right_neighbor_ip": ip_port_dict['right_neighbor_ip'],
+            "left_neighbor_ip": ip_port_dict['left_neighbor_ip'],
+            "child_port": ip_port_dict['child_port'],
+            "parent_port": ip_port_dict['parent_port'],
+            "right_neighbor_port": ip_port_dict['right_neighbor_port'],
+            "left_neighbor_port": ip_port_dict['left_neighbor_port'],
             "mtu": self.layer['layer_mtu'],
             "error_model": self.layer['error_model'],
             "error_detection_method": self.layer['error_detection_method'],

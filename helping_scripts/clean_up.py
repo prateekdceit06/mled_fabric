@@ -20,10 +20,14 @@ def delete_file_from_folders(filename, folders, base_directory):
 
 if __name__ == "__main__":
 
-    files_to_delete_from_processes = ["process_config.json", "process_A.tar.gz", "process_B.tar.gz",
-                                      "process_C.tar.gz", "process_D.tar.gz", "process_E.tar.gz"]
+    files_to_delete_from_processes = ["process_config.json", "ip_list.json"]
     files_to_delete_from_server = ["process_A.tar.gz", "process_B.tar.gz",
                                    "process_C.tar.gz", "process_D.tar.gz", "process_E.tar.gz"]
+
+    process_types = ["A", "B", "C", "D", "E"]
+    for process_type in process_types:
+        files_to_delete_from_processes.append(f"process_{process_type}.py")
+
     for file in files_to_delete_from_server:
         delete_file_from_folders(file, ["server"], base_dir)
 
