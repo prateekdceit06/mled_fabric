@@ -3,8 +3,6 @@ import logging
 import socket
 import time
 
-
-
 logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
@@ -58,7 +56,3 @@ class ProcessHandler:
                     raise e
         print("Failed to connect after multiple attempts.")
         return None
-
-
-
-
