@@ -4,8 +4,10 @@ import os
 import threading
 import logging
 import signal
+from utils import logging_format as logging_format
 
-logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+logging.basicConfig(format=logging_format, level=logging.INFO)
 
 terminate_event = threading.Event()
 
@@ -15,12 +17,12 @@ def fetch_config(config_handler, results):
     results['process_config'] = process_config
 
 
-def process_start_out_socket(process_handler):
-    process_handler.create_out_socket()
+def process_start_out_socket(process_handler, connections, timeout):
+    process_handler.create_out_socket(connections, timeout)
 
 
-def process_start_in_socket(process_handler):
-    process_handler.in_socket(5, 10)
+def process_create_route(process_handler, retries, delay):
+    process_handler.create_route(retries, delay)
 
 
 def signal_handler(sig, frame):
@@ -47,18 +49,23 @@ if __name__ == '__main__':
     process_config = results.get('process_config')
     print("Process Setup Completed.")
 
+    connections = process_config['connections_process_socket']
+    timeout = process_config['timeout_process_socket']
+    retries = process_config['retries_process_socket']
+    delay = process_config['delay_process_socket']
+
     process_handler = ProcessHandler(process_config, terminate_event)
 
-    process_start_in_socket_thread = threading.Thread(target=process_start_in_socket,
-                                                      args=(process_handler,))
+    process_start_in_socket_thread = threading.Thread(target=process_create_route,
+                                                      args=(process_handler, retries, delay,))
     process_start_in_socket_thread.daemon = True
     process_start_in_socket_thread.start()
 
     process_start_out_socket_thread = threading.Thread(target=process_start_out_socket,
-                                                       args=(process_handler,))
+                                                       args=(process_handler, connections, timeout,))
     process_start_out_socket_thread.daemon = True
     process_start_out_socket_thread.start()
 
     process_start_out_socket_thread.join()
 
-    print("Process Ended.")
+    logging.info("Process Ended.")

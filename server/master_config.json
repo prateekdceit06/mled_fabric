@@ -1,5 +1,9 @@
 {
   "seed": 123456789,
+  "connections_process_socket": 1,
+  "timeout_process_socket": 10,
+  "retries_process_socket" : 5,
+  "delay_process_socket" : 10,
   "layers": [
     {
       "layer_mtu": 500,

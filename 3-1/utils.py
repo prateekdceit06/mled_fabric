@@ -5,8 +5,10 @@ import logging
 import sys
 import tarfile
 
-logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+logging_format = '%(pathname)s:%(lineno)d - %(funcName)s - %(levelname)s - %(message)s'
+
+logging.basicConfig(format=logging_format, level=logging.INFO)
 
 def read_json_file(filename):
     with open(filename, 'r') as file:

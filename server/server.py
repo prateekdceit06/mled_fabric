@@ -2,14 +2,12 @@ import utils
 
 import socket
 import sys
-import signal
 import threading
 import logging
 import os
 
 lock = threading.Lock()
-logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
-
+logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
 def send_file_to_client(client_socket, file_path):
     with open(file_path, 'rb') as file:
@@ -58,10 +56,11 @@ class Server:
         ip_list = utils.read_json_file(ip_list_path)
         server_ip = ip_list['server_ip']
         server_port = ip_list['server_port']
+        connections = ip_list['connections_manager_process']
+        timeout = ip_list['timeout_manager_process']
         client_ips = [client["ip"] for client in ip_list["clients"]]
 
-
-        server_socket = utils.create_server_socket(server_ip, server_port, connections=5, timeout=5)
+        server_socket = utils.create_server_socket(server_ip, server_port, connections, timeout)
         connected_clients = set()
 
         try:

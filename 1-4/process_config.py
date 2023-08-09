@@ -9,6 +9,13 @@ class ProcessConfigHandler:
 
     def create_process_config(self, master_config, ip_list_config, client_ip):
 
+        ip_port_dict = dict()
+
+        ip_port_dict['connections_process_socket'] = master_config['connections_process_socket']
+        ip_port_dict['timeout_process_socket'] = master_config['timeout_process_socket']
+        ip_port_dict['retries_process_socket'] = master_config['retries_process_socket']
+        ip_port_dict['delay_process_socket'] = master_config['delay_process_socket']
+
         for layer in master_config['layers']:
             for process in layer['processes']:
                 if process['ip'] == client_ip:
@@ -22,7 +29,7 @@ class ProcessConfigHandler:
 
         keys = ["child", "parent", "right_neighbor", "left_neighbor"]
 
-        ip_port_dict = dict()
+
 
         for key in keys:
             if self.process[key] is not None:
@@ -42,6 +49,10 @@ class ProcessConfigHandler:
                 break
 
         process_config_to_write = {
+            "connections_process_socket": ip_port_dict['connections_process_socket'],
+            "timeout_process_socket": ip_port_dict['timeout_process_socket'],
+            "retries_process_socket": ip_port_dict['retries_process_socket'],
+            "delay_process_socket": ip_port_dict['delay_process_socket'],
             "name": self.process['name'],
             "ip": self.process['ip'],
             "port": port,

@@ -1,12 +1,12 @@
 from server import Server
 from print_network import PrintNetwork
-
+from utils import logging_format as logging_format
 import os
 import threading
 import signal
 import logging
 
-logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format=logging_format, level=logging.INFO)
 
 terminate_event = threading.Event()
 
@@ -35,4 +35,4 @@ if __name__ == "__main__":
     server_thread = threading.Thread(target=start_server_in_thread, args=(master_process,))
     server_thread.start()
 
-    print("Setup Completed.")
+    logging.info("Setup Completed.")

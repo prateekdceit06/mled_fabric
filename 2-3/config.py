@@ -8,8 +8,7 @@ import os
 import logging
 
 
-logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
-
+logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
 def delete_file(file_path):
     success = utils.delete_file(file_path)

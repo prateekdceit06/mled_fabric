@@ -3,7 +3,7 @@ import logging
 import socket
 import time
 
-logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
 
 class ProcessHandler:
@@ -24,10 +24,10 @@ class ProcessHandler:
         self.left_neighbor_port = get_value('left_neighbor_port')
         self.terminate_event = terminate_event
 
-    def create_out_socket(self):
+    def create_out_socket(self, connections, timeout):
         logging.info(f"Creating socket on {self.own_ip}:{self.own_port}")
 
-        out_server_socket = utils.create_server_socket(self.own_ip, self.own_port, 1, 10)
+        out_server_socket = utils.create_server_socket(self.own_ip, self.own_port, connections, timeout)
 
         while not self.terminate_event.is_set():
             try:
@@ -45,14 +45,18 @@ class ProcessHandler:
         while retries > 0:
             try:
                 in_socket.connect((host, port))
-                print("Connected to the server!")
+                logging.info(f"Connected to the server {host}:{port}!")
                 return in_socket
             except socket.error as e:
                 if e.errno == 111:  # Connection refused error
-                    print(f"Connection refused. Retrying in {delay} seconds...")
+                    logging.error(f"Connection refused. Retrying in {delay} seconds...")
                     time.sleep(delay)
                     retries -= 1
                 else:
+                    logging.error(f"Error on socket connect: {e}")
                     raise e
         print("Failed to connect after multiple attempts.")
         return None
+
+    def create_route(self, retries, delay):
+        pass
