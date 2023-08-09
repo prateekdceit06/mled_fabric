@@ -34,14 +34,15 @@ class ProcessHandler:
                 out_socket, addr = out_server_socket.accept()
                 logging.info(f"Accepted connection from {addr[0]}")
             except socket.timeout:
-                logging.info("Server is idle.")
+                # logging.info("Server is idle.")
+                pass
             except socket.error as e:
                 if self.terminate_event.is_set():
                     logging.info("Terminating due to signal.")
                     out_server_socket.close()
                 logging.error(f"Error on socket accept: {e}")
 
-    def create_in_socket(self, in_socket, retries, delay, host, port):
+    def connect_in_socket(self, in_socket, retries, delay, host, port):
         while retries > 0:
             try:
                 in_socket.connect((host, port))

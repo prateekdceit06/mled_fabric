@@ -68,4 +68,4 @@ if __name__ == '__main__':
 
     process_start_out_socket_thread.join()
 
-    print("Process Ended.")
+    logging.info("Process Ended.")

@@ -10,7 +10,7 @@ class ProcessHandler(process.ProcessHandler):
     def create_route(self, retries, delay):
         in_socket = utils.create_client_socket(self.own_ip, self.own_port)
         host, port = self.find_host_port()
-        super().create_in_socket(in_socket, retries, delay, host, port)
+        in_socket = super().connect_in_socket(in_socket, retries, delay, host, port)
 
     def find_host_port(self):
         host, port = self.child_ip, self.child_port

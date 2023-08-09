@@ -38,7 +38,7 @@ def create_client_socket(client_ip, client_port):
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             client_socket.bind((client_ip, client_port))
         except socket.error as e:
-            if e.rrno == 98:
+            if e.errno == 98:
                 pass
             else:
                 logging.error(f"Error on socket bind: {e}")
