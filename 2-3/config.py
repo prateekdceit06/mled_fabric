@@ -5,14 +5,17 @@ import socket
 import sys
 import os
 import logging
-import signal
+import time
+import threading
 
 logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
-def signal_handler(sig, frame):
-    logging.info("Gracefully shutting down")
-    sys.exit(0)
+def terminate_process_thread(terminate_event, client_socket):
+    while not terminate_event.is_set():
+        time.sleep(10)
+    logging.info("Terminating process thread")
+    client_socket.close()
 
 
 def delete_file(file_path):
@@ -31,10 +34,12 @@ class ConfigClient:
         self.client_port = client_port
         self.directory = directory
 
-    def get_config(self):
-        signal.signal(signal.SIGINT, signal_handler)
+    def get_config(self, terminate_event):
 
         client_socket = utils.create_client_socket(self.client_ip, self.client_port)
+        terminate_thread = threading.Thread(target=terminate_process_thread, args=(terminate_event, client_socket))
+        terminate_thread.daemon = True
+        terminate_thread.start()
 
         try:
             # Connect to the server

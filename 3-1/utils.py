@@ -48,7 +48,7 @@ def create_server_socket(server_ip, server_port):
     except socket.error as e:
         logging.error(f"Error creating socket: {e}")
         sys.exit(1)
-    server_socket.settimeout(60)  # Set a timeout on accept()
+    server_socket.settimeout(5)  # Set a timeout on accept()
     try:
         server_socket.bind((server_ip, server_port))
     except socket.error as e:

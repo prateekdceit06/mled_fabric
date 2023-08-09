@@ -20,11 +20,6 @@ def send_file_to_client(client_socket, file_path):
     logging.info(f"File {filename} sent to client {client_socket.getpeername()[0]}")
 
 
-def signal_handler(sig, frame):
-    logging.info("Gracefully shutting down")
-    sys.exit(0)
-
-
 class Server:
 
     def __init__(self, directory):
@@ -35,15 +30,16 @@ class Server:
         received_char = process_type.decode('utf-8')
         logging.info(f"Received process type {received_char} from client {addr[0]}")
         tar_name = f"process_{received_char}.tar.gz"
-        routing_file = f"process_{received_char}.py"
+        routing_file_name = f"process_{received_char}.py"
+        routing_file = os.path.join(self.path, routing_file_name)
         process_tarfile_path = os.path.join(self.path, tar_name)
         utils.create_tarfile(process_tarfile_path, routing_file)
         logging.info(f"Created tar file {tar_name}")
         send_file_to_client(client_socket, process_tarfile_path)
-        with lock:
-            if connected_clients == client_ips:
-                logging.info("All clients connected. Closing server socket")
-                server_socket.close()
+        # with lock:
+        #     if connected_clients == client_ips:
+        #         logging.info("All clients connected. Closing server socket")
+        #         server_socket.close()
 
     def client_handler(self, server_socket, client_socket, addr, client_ips, connected_clients):
         if addr[0] in client_ips:
@@ -55,8 +51,7 @@ class Server:
         else:
             client_socket.close()
 
-    def start_server(self):
-        signal.signal(signal.SIGINT, signal_handler)
+    def start_server(self, terminate_event):
         ip_list_path = os.path.join(self.path, 'ip_list.json')
         ip_list = utils.read_json_file(ip_list_path)
         server_ip = ip_list['server_ip']
@@ -76,13 +71,18 @@ class Server:
                                                            client_ips, connected_clients))
                     client_thread.start()
                 except socket.timeout:
-                    logging.info("Server is idle.")
-                    with lock:
-                        if connected_clients == client_ips:
-                            logging.info("All clients served. Closing server socket (Timeout)")
-                            break
-                        else:
-                            continue
+
+                    if terminate_event.is_set():
+                        logging.info("Terminating server")
+                        break
+                    else:
+                        logging.info("Server is idle.")
+                    # with lock:
+                    #     if connected_clients == client_ips:
+                    #         logging.info("All clients served. Closing server socket (Timeout)")
+                    #         break
+                    #     else:
+                    #         continue
                 except socket.error as e:
                     if e.errno == 9:  # Bad file descriptor
                         with lock:
