@@ -1,5 +1,4 @@
-
-from utils import read_json_file
+import utils
 
 import socket
 import sys
@@ -9,10 +8,7 @@ import logging
 import os
 
 lock = threading.Lock()
-logging.basicConfig(level=logging.INFO)
-
-
-
+logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
 def send_file_to_client(client_socket, file_path):
@@ -37,13 +33,17 @@ class Server:
     def handle_client(self, server_socket, client_socket, addr, connected_clients, client_ips):
         process_type = client_socket.recv(2)
         received_char = process_type.decode('utf-8')
-        logging.info(f"Received {received_char} from client {addr[0]}")
-        process_tarfile_path = os.path.join(self.path, f'process_{received_char}.tar.gz')
+        logging.info(f"Received process type {received_char} from client {addr[0]}")
+        tar_name = f"process_{received_char}.tar.gz"
+        routing_file = f"process_{received_char}.py"
+        process_tarfile_path = os.path.join(self.path, tar_name)
+        utils.create_tarfile(process_tarfile_path, routing_file)
+        logging.info(f"Created tar file {tar_name}")
         send_file_to_client(client_socket, process_tarfile_path)
-        # with lock:
-        #     if connected_clients == client_ips:
-        #         logging.info("All clients connected. Closing server socket")
-        #         server_socket.close()
+        with lock:
+            if connected_clients == client_ips:
+                logging.info("All clients connected. Closing server socket")
+                server_socket.close()
 
     def client_handler(self, server_socket, client_socket, addr, client_ips, connected_clients):
         if addr[0] in client_ips:
@@ -58,26 +58,12 @@ class Server:
     def start_server(self):
         signal.signal(signal.SIGINT, signal_handler)
         ip_list_path = os.path.join(self.path, 'ip_list.json')
-        ip_list = read_json_file(ip_list_path)
+        ip_list = utils.read_json_file(ip_list_path)
         server_ip = ip_list['server_ip']
         server_port = ip_list['server_port']
         client_ips = set(ip_list['client'])
 
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.settimeout(1)  # Set a timeout on accept()
-        try:
-            server_socket.bind((server_ip, server_port))
-        except socket.error as e:
-            logging.error(f"Error on socket bind: {e}")
-            sys.exit(1)
-
-        try:
-            server_socket.listen(10)
-            logging.info(f"Listening on {server_ip}:{server_port}")
-        except socket.error as e:
-            logging.error(f"Error on socket listen: {e}")
-            sys.exit(1)
-
+        server_socket = utils.create_server_socket(server_ip, server_port)
         connected_clients = set()
 
         try:
@@ -90,6 +76,7 @@ class Server:
                                                            client_ips, connected_clients))
                     client_thread.start()
                 except socket.timeout:
+                    logging.info("Server is idle.")
                     with lock:
                         if connected_clients == client_ips:
                             logging.info("All clients served. Closing server socket (Timeout)")

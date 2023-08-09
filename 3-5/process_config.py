@@ -8,10 +8,6 @@ class ProcessConfigHandler:
     def __init__(self, config_file_path):
         self.config_file_path = config_file_path
 
-    def write_process_config(self, config):
-        with open(self.config_file_path, 'w') as file:
-            json.dump(config, file)
-
     def create_process_config(self, config, client_ip):
 
         for layer in config['layers']:

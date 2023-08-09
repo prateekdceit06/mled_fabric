@@ -1,18 +1,24 @@
 from process_config import ProcessConfigHandler
 from master_config import MasterConfigHandler
+import utils
 import socket
 import sys
 import os
 import logging
-import tarfile
+import signal
 
 logging.basicConfig(format='%(filename)s - %(funcName)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
+def signal_handler(sig, frame):
+    logging.info("Gracefully shutting down")
+    sys.exit(0)
+
+
 def delete_file(file_path):
-    if os.path.exists(file_path):
+    success = utils.delete_file(file_path)
+    if success:
         filename = os.path.basename(file_path)
-        os.remove(file_path)
         logging.info(f"Deleted file: {filename}")
 
 
@@ -26,19 +32,9 @@ class ConfigClient:
         self.directory = directory
 
     def get_config(self):
-        try:
-            # Create a socket object
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error as e:
-            logging.error(f"Error creating socket: {e}")
-            sys.exit(1)
+        signal.signal(signal.SIGINT, signal_handler)
 
-        # Bind the socket to the client IP and port
-        try:
-            client_socket.bind((self.client_ip, self.client_port))
-        except socket.error as e:
-            logging.error(f"Error on socket bind: {e}")
-            sys.exit(1)
+        client_socket = utils.create_client_socket(self.client_ip, self.client_port)
 
         try:
             # Connect to the server
@@ -73,14 +69,14 @@ class ConfigClient:
         master_config_handler = MasterConfigHandler(master_config_file_path)
         master_config_handler.get_master_config(client_socket)
         logging.info("Received master config from server")
-        master_config = master_config_handler.read_master_config()
+        master_config = utils.read_json_file(master_config_file_path)
         return master_config, master_config_file_path
 
     def create_process_config(self, master_config, master_config_file_path):
         process_config_file_path = os.path.join(self.directory, 'process_config.json')
         process_config_handler = ProcessConfigHandler(process_config_file_path)
         process_config = process_config_handler.create_process_config(master_config, self.client_ip)
-        process_config_handler.write_process_config(process_config)
+        utils.write_json_file(process_config, process_config_file_path)
         logging.info("Created process config")
         delete_file(master_config_file_path)
         return process_config
@@ -94,11 +90,6 @@ class ConfigClient:
         with open(process_project_file_path, 'wb') as f:
             f.write(data)
         logging.info(f"Received process file from server: {filename}")
-        self.extract_tar_gz(process_project_file_path)
+        utils.extract_tar_gz(self.directory, process_project_file_path)
         logging.info(f"Extracted process tar file: {filename}")
         delete_file(process_project_file_path)
-        logging.info(f"Deleted process tar file: {filename}")
-
-    def extract_tar_gz(self, file_path):
-        with tarfile.open(file_path, 'r:gz') as tar:
-            tar.extractall(path=self.directory)

@@ -6,11 +6,6 @@ class MasterConfigHandler:
     def __init__(self, master_config_file_path):
         self.master_config_file_path = master_config_file_path
 
-    def read_master_config(self):
-        with open(self.master_config_file_path, 'r') as file:
-            data = json.load(file)
-        return data
-
     def get_master_config(self, client_socket):
         length = int.from_bytes(client_socket.recv(4), byteorder='big')
         data = client_socket.recv(length)
