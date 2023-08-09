@@ -30,10 +30,10 @@ class Server:
         received_char = process_type.decode('utf-8')
         logging.info(f"Received process type {received_char} from client {addr[0]}")
         tar_name = f"process_{received_char}.tar.gz"
-        routing_file_name = f"process_{received_char}.py"
-        routing_file = os.path.join(self.path, routing_file_name)
+        routing_file_name1 = f"process_{received_char}.py"
+        routing_file1 = os.path.join(self.path, routing_file_name1)
         process_tarfile_path = os.path.join(self.path, tar_name)
-        utils.create_tarfile(process_tarfile_path, routing_file)
+        utils.create_tarfile(process_tarfile_path, routing_file1)
         logging.info(f"Created tar file {tar_name}")
         send_file_to_client(client_socket, process_tarfile_path)
         # with lock:
@@ -61,7 +61,7 @@ class Server:
         client_ips = [client["ip"] for client in ip_list["clients"]]
 
 
-        server_socket = utils.create_server_socket(server_ip, server_port)
+        server_socket = utils.create_server_socket(server_ip, server_port, connections=5, timeout=5)
         connected_clients = set()
 
         try:
@@ -78,8 +78,7 @@ class Server:
                     if terminate_event.is_set():
                         logging.info("Terminating server")
                         break
-                    else:
-                        logging.info("Server is idle.")
+
                     # with lock:
                     #     if connected_clients == client_ips:
                     #         logging.info("All clients served. Closing server socket (Timeout)")

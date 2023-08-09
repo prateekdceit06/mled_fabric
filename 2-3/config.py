@@ -60,7 +60,7 @@ class ConfigClient:
         except socket.error as e:
             logging.error(f"Error closing socket: {e}")
             sys.exit(1)
-        return master_config, process_config
+        return process_config
 
     def get_master_config(self, client_socket):
         master_config_file_path = os.path.join(self.directory, 'master_config.json')
@@ -88,13 +88,20 @@ class ConfigClient:
 
     def get_process_file(self, client_socket, char_to_send):
         filename = 'process_' + char_to_send + '.tar.gz'
-        process_project_file_path = os.path.join(self.directory, filename)
+        process_file_path = os.path.join(self.directory, filename)
         client_socket.sendall(char_to_send.encode('utf-8'))
         length = int.from_bytes(client_socket.recv(4), byteorder='big')
         data = client_socket.recv(length)
-        with open(process_project_file_path, 'wb') as f:
+        with open(process_file_path, 'wb') as f:
             f.write(data)
         logging.info(f"Received process file from server: {filename}")
-        utils.extract_tar_gz(self.directory, process_project_file_path)
+        utils.extract_tar_gz(self.directory, process_file_path)
         logging.info(f"Extracted process tar file: {filename}")
-        delete_file(process_project_file_path)
+        new_filename = "process_file.py"
+        new_filename_path = os.path.join(self.directory, new_filename)
+        old_filename = 'process_' + char_to_send + '.py'
+        old_filename_path = os.path.join(self.directory, old_filename)
+        success = utils.rename_file(old_filename_path, new_filename_path)
+        if success:
+            logging.info(f"Renamed process file to: {new_filename}")
+        delete_file(process_file_path)

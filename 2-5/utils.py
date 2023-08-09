@@ -26,43 +26,50 @@ def delete_file(filename):
 
 
 def create_client_socket(client_ip, client_port):
+    client_socket = None
     try:
-        # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error as e:
         logging.error(f"Error creating socket: {e}")
-        sys.exit(1)
-
-    try:
-        client_socket.bind((client_ip, client_port))
-    except socket.error as e:
-        logging.error(f"Error on socket bind: {e}")
-        sys.exit(1)
-
+    if client_socket is not None:
+        try:
+            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            client_socket.bind((client_ip, client_port))
+        except socket.error as e:
+            if e.rrno == 98:
+                pass
+            else:
+                logging.error(f"Error on socket bind: {e}")
     return client_socket
 
 
-def create_server_socket(server_ip, server_port):
+def create_server_socket(server_ip, server_port, connections=10, timeout=5):
+    server_socket = None
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error as e:
         logging.error(f"Error creating socket: {e}")
-        sys.exit(1)
-    server_socket.settimeout(5)  # Set a timeout on accept()
-    try:
-        server_socket.bind((server_ip, server_port))
-    except socket.error as e:
-        logging.error(f"Error on socket bind: {e}")
-        sys.exit(1)
 
-    try:
-        server_socket.listen(10)
-        logging.info(f"Listening on {server_ip}:{server_port}")
-    except socket.error as e:
-        logging.error(f"Error on socket listen: {e}")
-        sys.exit(1)
+    if server_socket is not None:
+        server_socket.settimeout(timeout)  # Set a timeout on accept()
+
+        try:
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_socket.bind((server_ip, server_port))
+        except socket.error as e:
+            if e.rrno == 98:
+                pass
+            else:
+                logging.error(f"Error on socket bind: {e}")
+
+        try:
+            server_socket.listen(connections)
+            logging.info(f"Listening on {server_ip}:{server_port}")
+        except socket.error as e:
+            logging.error(f"Error on socket listen: {e}")
 
     return server_socket
+
 
 
 def create_tarfile(filename, *files):
@@ -74,3 +81,11 @@ def create_tarfile(filename, *files):
 def extract_tar_gz(directory, file_path):
     with tarfile.open(file_path, 'r:gz') as tar:
         tar.extractall(path=directory)
+
+
+def rename_file(old_path, new_path):
+    try:
+        os.rename(old_path, new_path)
+        return True
+    except Exception as e:
+        return False
