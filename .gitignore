@@ -4,6 +4,8 @@ mled_fabric.iml
 
 /.idea
 
+**/__pycache__/*
+
 /1-1/master_config.json
 /1-2/master_config.json
 /1-3/master_config.json
