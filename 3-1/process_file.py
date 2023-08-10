@@ -1,8 +1,9 @@
+#Process A
 import process
 
 
 class ProcessHandler(process.ProcessHandler):
 
-    def __init__(self, ip_port_dict, terminate_event):
-        super().__init__(ip_port_dict, terminate_event)
+    def __init__(self, process_config, terminate_event):
+        super().__init__(process_config, terminate_event)
 

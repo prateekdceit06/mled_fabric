@@ -38,7 +38,7 @@ def create_client_socket(client_ip, client_port):
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             client_socket.bind((client_ip, client_port))
         except socket.error as e:
-            if e.rrno == 98:
+            if e.errno == 98:
                 pass
             else:
                 logging.error(f"Error on socket bind: {e}")
@@ -59,7 +59,7 @@ def create_server_socket(server_ip, server_port, connections=10, timeout=5):
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server_socket.bind((server_ip, server_port))
         except socket.error as e:
-            if e.rrno == 98:
+            if e.errno == 98:
                 pass
             else:
                 logging.error(f"Error on socket bind: {e}")
@@ -91,3 +91,6 @@ def rename_file(old_path, new_path):
         return True
     except Exception as e:
         return False
+
+def get_key_for_value(dict, value_to_find):
+    return [key for key, value in dict.items() if value == value_to_find]

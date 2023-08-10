@@ -91,3 +91,6 @@ def rename_file(old_path, new_path):
         return True
     except Exception as e:
         return False
+
+def get_key_for_value(dict, value_to_find):
+    return [key for key, value in dict.items() if value == value_to_find]
