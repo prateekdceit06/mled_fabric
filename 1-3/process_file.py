@@ -1,49 +1,81 @@
+# Process E
+
 import process
 import utils
 import logging
-import socket
+import threading
 
 logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
 
 class ProcessHandler(process.ProcessHandler):
 
-    def __init__(self, ip_port_dict, terminate_event):
-        super().__init__(ip_port_dict, terminate_event)
+    def __init__(self, process_config, terminate_event):
+        super().__init__(process_config, terminate_event)
+        self.terminate_event = terminate_event
 
-    def create_out_socket(self, connections, timeout):
-        logging.info(f"Creating socket on {self.own_ip}:{self.own_port}")
+    def out_socket_up_handler_thread(self, connections, timeout, ip, port):
+        super().create_out_socket(connections, timeout, ip, port)
 
-        out_server_socket = utils.create_server_socket(self.own_ip, self.own_port, connections, timeout)
+    def out_socket_down_handler_thread(self, connections, timeout, ip, port):
+        super().create_out_socket(connections, timeout, ip, port)
 
-        while not self.terminate_event.is_set():
-            try:
-                out_socket, addr = out_server_socket.accept()
-                logging.info(f"Accepted connection from {addr[0]}")
-            except socket.timeout:
-                logging.info("Server is idle.")
-            except socket.error as e:
-                if self.terminate_event.is_set():
-                    logging.info("Terminating due to signal.")
-                    out_server_socket.close()
-                logging.error(f"Error on socket accept: {e}")
+    def in_socket_up_handler_thread(self, in_socket_up, retries, delay, up_host, up_port):
+        in_socket_up = super().connect_in_socket(in_socket_up, retries, delay, up_host, up_port)
+
+    def in_socket_down_handler_thread(self, in_socket_down, retries, delay, down_host, down_port):
+        in_socket_down = super().connect_in_socket(in_socket_down, retries, delay, down_host, down_port)
+
+    def create_out_socket(self, connections, timeout, ip=None, port=None):
+        if ip is None:
+            ip = self.process_config['ip']
+        if port is None:
+            port = self.process_config['port']
+
+        out_server_socket_down_thread = threading.Thread(target=self.out_socket_down_handler_thread,
+                                                         args=(connections, timeout, ip, port,))
+        # out_server_socket_down_thread.daemon = True
+        out_server_socket_down_thread.start()
+
+
+        if self.process_config['parent'] is not None:
+            port = port + 100
+            out_server_socket_up_thread = threading.Thread(target=self.out_socket_up_handler_thread,
+                                                           args=(connections, timeout,
+                                                                 ip, port,))
+            # out_server_socket_up_thread.daemon = True
+            out_server_socket_up_thread.start()
+        out_server_socket_down_thread.join()
+        logging.info("COMPLETED THREAD EXECUTION")
+
     def create_route(self, retries, delay):
-        in_socket_down = utils.create_client_socket(self.own_ip, self.own_port)
-        port2 = self.own_port + 100
-        in_socket_up = utils.create_client_socket(self.own_ip, port2)
-        host_down, port_down = self.find_host_port_down()
-        host_up, port_up = self.find_host_port_up()
-        if host_down is not None:
-            in_socket_down = super().connect_in_socket(in_socket_down, retries, delay, host_down, port_down)
-        if host_up is not None:
-            in_socket_up = super().connect_in_socket(in_socket_up, retries, delay, host_up, port_up)
+        in_socket_up = None
+        if self.process_config['parent'] is not None:
+            in_socket_up = utils.create_client_socket(self.process_config['ip'], self.process_config['port'])
+            up_host, up_port = self.find_host_port_up()
+            in_socket_up_thread = threading.Thread(target=self.in_socket_up_handler_thread,
+                                                   args=(in_socket_up, retries, delay, up_host, up_port,))
+            # in_socket_up_thread.daemon = True
+            in_socket_up_thread.start()
+
+        # parent_thread_id = threading.currentThread().ident
+
+        in_socket_down = utils.create_client_socket(self.process_config['ip'], 0)
+        down_host, down_port = self.find_host_port_down()
+        in_socket_down_thread = threading.Thread(target=self.in_socket_down_handler_thread,
+                                                 args=(in_socket_down,
+                                                       retries, delay, down_host, down_port,))
+        # in_socket_down_thread.daemon = True
+        in_socket_down_thread.start()
+
 
     def find_host_port_down(self):
-        if self.child_ip is not None:
-            host, port = self.child_ip, self.child_port
+        if self.process_config['child'] is not None:
+            host, port = self.process_config['child_ip'], self.process_config['child_port'] + 100
         else:
-            host, port = self.left_neighbor_ip, self.left_neighbor_port
+            host, port = self.process_config['left_neighbor_ip'], self.process_config['left_neighbor_port']
         return host, port
 
     def find_host_port_up(self):
-        return None, None
+        host, port = self.process_config['parent_ip'], self.process_config['parent_port']
+        return host, port

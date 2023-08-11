@@ -58,11 +58,11 @@ def create_server_socket(server_ip, server_port, connections=10, timeout=5):
         try:
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server_socket.bind((server_ip, server_port))
-        except socket.error as e:
-            if e.rrno == 98:
+        except socket.error as err:
+            if err.errno == 98:
                 pass
             else:
-                logging.error(f"Error on socket bind: {e}")
+                logging.error(f"Error on socket bind: {err}")
 
         try:
             server_socket.listen(connections)
