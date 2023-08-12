@@ -13,8 +13,9 @@ class ProcessHandler(ProcessHandlerBase):
         in_data_socket = utils.create_client_socket(
             self.process_config['ip'], 0)
         host, port = self.find_data_host_port()
-        in_data_socket = super().connect_in_socket(
+        in_data_socket_generator = super().connect_in_socket(
             in_data_socket, retries, delay, host, port, "data")
+        in_data_socket = next(in_data_socket_generator)
 
     def find_data_host_port(self):
         if self.process_config['child'] is not None:
@@ -27,8 +28,9 @@ class ProcessHandler(ProcessHandlerBase):
         in_ack_socket = utils.create_client_socket(
             self.process_config['ip'], 0)
         host, port = self.find_ack_host_port()
-        in_ack_socket = super().connect_in_socket(
+        in_ack_socket_generator = super().connect_in_socket(
             in_ack_socket, retries, delay, host, port, "ack")
+        in_ack_socket = next(in_ack_socket_generator)
 
     def find_ack_host_port(self):
         host, port = self.process_config['parent_ip'], self.process_config['parent_ack_port']

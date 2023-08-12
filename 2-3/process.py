@@ -26,11 +26,18 @@ class ProcessHandlerBase:
                 out_socket, addr = out_server_socket.accept()
                 host_relation = self.get_host_relation(addr[0])
                 host_relation_name = self.process_config[host_relation]
-                logging.info(print_colour
-                             .PrintColor
-                             .print_in_green_back(f"Accepted connection from {addr[0]}. "
-                                                  f"Process {self.process_config['name']} is ready to send {socket_type} to "
-                                                  f"{host_relation_name} on {addr[0]}:{addr[1]}."))
+                if socket_type == "data":
+                    logging.info(print_colour
+                                 .PrintColor
+                                 .print_in_green_back(f"Accepted connection from {addr[0]}. "
+                                                      f"Process {self.process_config['name']} is ready to send data to "
+                                                      f"{host_relation_name} on {addr[0]}:{addr[1]}."))
+                elif socket_type == "ack":
+                    logging.info(print_colour
+                                 .PrintColor
+                                 .print_in_green_back(f"Accepted connection from {addr[0]}. "
+                                                      f"Process {self.process_config['name']} is ready to send "
+                                                      f"acknowledgements to {host_relation_name} on {addr[0]}:{addr[1]}."))
             except socket.timeout:
                 # logging.info("Server is idle.")
                 pass
@@ -48,10 +55,20 @@ class ProcessHandlerBase:
                 host_relation = self.get_host_relation(host)
                 logging.info(print_colour.PrintColor.print_in_red_back(f"{self.process_config['name']} is connected "
                              f"on {host}:{port} and ready to receive {socket_type} from {self.process_config[host_relation]} ."))
-                return in_socket
+                yield in_socket
+                while True:
+                    try:
+                        in_socket.getpeername()
+                        time.sleep(delay)
+                    except socket.error as e:
+                        if e.errno == 107:
+                            logging.info(print_colour.PrintColor.print_in_yellow_back(
+                                f"Connection closed by {host}:{port}."))
+                            break
+
             except socket.error as e:
                 if e.errno == 111:  # Connection refused error
-                    logging.error(f"Connection ({socket_type}) refused to {self.process_config.get(host_relation)} "
+                    logging.error(f"Connection refused to {self.process_config.get(host_relation)} "
                                   f"on {host}:{port}."
                                   f" Retrying in {delay} seconds...")
                     time.sleep(delay)
@@ -60,7 +77,6 @@ class ProcessHandlerBase:
                     logging.error(f"Error on socket connect: {e}")
                     raise e
         print("Failed to connect after multiple attempts.")
-        return None
 
     def create_data_route(self, retries, delay):
         pass

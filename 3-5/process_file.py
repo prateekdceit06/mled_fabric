@@ -13,8 +13,9 @@ class ProcessHandler(ProcessHandlerBase):
         in_data_socket = utils.create_client_socket(
             self.process_config['ip'], 0)
         host, port = self.find_data_host_port()
-        in_data_socket = super().connect_in_socket(
+        in_data_socket_generator = super().connect_in_socket(
             in_data_socket, retries, delay, host, port, "data")
+        in_data_socket = next(in_data_socket_generator)
 
     def find_data_host_port(self):
         host, port = self.process_config['child_ip'], self.process_config['child_data_port']

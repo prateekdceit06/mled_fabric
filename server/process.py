@@ -55,7 +55,17 @@ class ProcessHandlerBase:
                 host_relation = self.get_host_relation(host)
                 logging.info(print_colour.PrintColor.print_in_red_back(f"{self.process_config['name']} is connected "
                              f"on {host}:{port} and ready to receive data from {self.process_config[host_relation]} ."))
-                return in_socket
+                yield in_socket
+                while True:
+                    try:
+                        in_socket.getpeername()
+                        time.sleep(delay)
+                    except socket.error as e:
+                        if e.errno == 107:
+                            logging.info(print_colour.PrintColor.print_in_yellow_back(
+                                f"Connection closed by {host}:{port}."))
+                            break
+
             except socket.error as e:
                 if e.errno == 111:  # Connection refused error
                     logging.error(f"Connection refused to {self.process_config.get(host_relation)} "
@@ -67,7 +77,6 @@ class ProcessHandlerBase:
                     logging.error(f"Error on socket connect: {e}")
                     raise e
         print("Failed to connect after multiple attempts.")
-        return None
 
     def create_data_route(self, retries, delay):
         pass

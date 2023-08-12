@@ -21,12 +21,14 @@ class ProcessHandler(ProcessHandlerBase):
         super().create_out_socket(connections, timeout, ip, port, socket_type)
 
     def in_socket_up_handler(self, in_socket_up, retries, delay, up_host, up_port, socket_type):
-        in_socket_up = super().connect_in_socket(
+        in_socket_up_generator = super().connect_in_socket(
             in_socket_up, retries, delay, up_host, up_port, socket_type)
+        in_socket_up = next(in_socket_up_generator)
 
     def in_socket_down_handler(self, in_socket_down, retries, delay, down_host, down_port, socket_type):
-        in_socket_down = super().connect_in_socket(
+        in_socket_down_generator = super().connect_in_socket(
             in_socket_down, retries, delay, down_host, down_port, socket_type)
+        in_socket_down = next(in_socket_down_generator)
 
     def create_out_socket(self, connections, timeout, ip, port, socket_type):
 
