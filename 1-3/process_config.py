@@ -29,23 +29,24 @@ class ProcessConfigHandler:
 
         keys = ["child", "parent", "right_neighbor", "left_neighbor"]
 
-
-
         for key in keys:
             if self.process[key] is not None:
                 for client in clients:
                     if client['name'] == self.process[key]:
                         ip_port_dict[f"{key}_ip"] = client['ip']
-                        ip_port_dict[f"{key}_port"] = client['port']
+                        ip_port_dict[f"{key}_data_port"] = client['data_port']
+                        ip_port_dict[f"{key}_ack_port"] = client['ack_port']
                         break
             else:
                 ip_port_dict[f"{key}_ip"] = None
-                ip_port_dict[f"{key}_port"] = None
+                ip_port_dict[f"{key}_data_port"] = None
+                ip_port_dict[f"{key}_ack_port"] = None
 
-        port = None
+        data_port = None
         for client in clients:
             if client['name'] == self.process['name']:
-                port = client['port']
+                data_port = client['data_port']
+                ack_port = client['ack_port']
                 break
 
         process_config_to_write = {
@@ -55,7 +56,8 @@ class ProcessConfigHandler:
             "delay_process_socket": ip_port_dict['delay_process_socket'],
             "name": self.process['name'],
             "ip": self.process['ip'],
-            "port": port,
+            "data_port": data_port,
+            "ack_port": ack_port,
             "layer_id": self.layer['layer_id'],
             "process_id": self.process['process_id'],
             "child": self.process['child'],
@@ -66,10 +68,10 @@ class ProcessConfigHandler:
             "parent_ip": ip_port_dict['parent_ip'],
             "right_neighbor_ip": ip_port_dict['right_neighbor_ip'],
             "left_neighbor_ip": ip_port_dict['left_neighbor_ip'],
-            "child_port": ip_port_dict['child_port'],
-            "parent_port": ip_port_dict['parent_port'],
-            "right_neighbor_port": ip_port_dict['right_neighbor_port'],
-            "left_neighbor_port": ip_port_dict['left_neighbor_port'],
+            "child_data_port": ip_port_dict['child_data_port'],
+            "parent_data_port": ip_port_dict['parent_data_port'],
+            "right_neighbor_data_port": ip_port_dict['right_neighbor_data_port'],
+            "left_neighbor_data_port": ip_port_dict['left_neighbor_data_port'],
             "mtu": self.layer['layer_mtu'],
             "error_model": self.layer['error_model'],
             "error_detection_method": self.layer['error_detection_method'],

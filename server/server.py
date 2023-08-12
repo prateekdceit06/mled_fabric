@@ -9,13 +9,15 @@ import os
 lock = threading.Lock()
 logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
+
 def send_file_to_client(client_socket, file_path):
     with open(file_path, 'rb') as file:
         data = file.read()
     client_socket.sendall(len(data).to_bytes(4, byteorder='big'))
     client_socket.sendall(data)
     filename = os.path.basename(file_path)
-    logging.info(f"File {filename} sent to client {client_socket.getpeername()[0]}")
+    logging.info(
+        f"File {filename} sent to client {client_socket.getpeername()[0]}")
 
 
 class Server:
@@ -26,7 +28,8 @@ class Server:
     def handle_client(self, server_socket, client_socket, addr, connected_clients, client_ips):
         process_type = client_socket.recv(2)
         received_char = process_type.decode('utf-8')
-        logging.info(f"Received process type {received_char} from client {addr[0]}")
+        logging.info(
+            f"Received process type {received_char} from client {addr[0]}")
         tar_name = f"process_{received_char}.tar.gz"
         routing_file_name1 = f"process_{received_char}.py"
         routing_file1 = os.path.join(self.path, routing_file_name1)
@@ -47,7 +50,8 @@ class Server:
             ip_list_config_path = os.path.join(self.path, 'ip_list.json')
             send_file_to_client(client_socket, ip_list_config_path)
             send_file_to_client(client_socket, master_config_path)
-            self.handle_client(server_socket, client_socket, addr, connected_clients, client_ips)
+            self.handle_client(server_socket, client_socket,
+                               addr, connected_clients, client_ips)
         else:
             client_socket.close()
 
@@ -60,7 +64,8 @@ class Server:
         timeout = ip_list['timeout_manager_process']
         client_ips = [client["ip"] for client in ip_list["clients"]]
 
-        server_socket = utils.create_server_socket(server_ip, server_port, connections, timeout)
+        server_socket = utils.create_server_socket(
+            server_ip, server_port, "manager", connections, timeout)
         connected_clients = set()
 
         try:
@@ -88,7 +93,8 @@ class Server:
                     if e.errno == 9:  # Bad file descriptor
                         with lock:
                             if connected_clients == client_ips:
-                                logging.info("All clients served. Closing server socket (Bad file descriptor)")
+                                logging.info(
+                                    "All clients served. Closing server socket (Bad file descriptor)")
                                 break
                     else:
                         raise

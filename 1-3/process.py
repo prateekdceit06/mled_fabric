@@ -7,34 +7,37 @@ import print_colour
 logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
 
-class ProcessHandler:
+class ProcessHandlerBase:
 
     def __init__(self, process_config, terminate_event):
         self.process_config = process_config
         self.terminate_event = terminate_event
 
+    def create_out_socket(self, connections, timeout, ip, port, socket_type):
 
-    def create_out_socket(self, connections, timeout, ip=None, port=None):
-        if ip is None:
-            ip = self.process_config['ip']
-        if port is None:
-            port = self.process_config['port']
-
-        logging.info(f"Creating socket on {ip}:{port}")
-        out_server_socket = utils.create_server_socket(ip, port, connections, timeout)
+        logging.info(print_colour.PrintColor.print_in_purple_back(
+            f"Creating {socket_type} socket on {ip}:{port}"))
+        out_server_socket = utils.create_server_socket(
+            ip, port, socket_type, connections, timeout)
 
         while not self.terminate_event.is_set():
             try:
 
                 out_socket, addr = out_server_socket.accept()
-                host_relation_ip = utils.get_key_for_value(self.process_config, addr[0])
-                host_relation = host_relation_ip[0].rsplit("_", 1)[0]
+                host_relation = self.get_host_relation(addr[0])
                 host_relation_name = self.process_config[host_relation]
-                logging.info(print_colour
-                             .PrintColor
-                             .print_in_green_back(f"Accepted connection from {addr[0]}. "
-                                                  f"Process {self.process_config['name']} is ready to send data to "
-                                                  f"{host_relation_name} on {addr[0]}:{addr[1]}."))
+                if socket_type == "data":
+                    logging.info(print_colour
+                                 .PrintColor
+                                 .print_in_green_back(f"Accepted connection from {addr[0]}. "
+                                                      f"Process {self.process_config['name']} is ready to send data to "
+                                                      f"{host_relation_name} on {addr[0]}:{addr[1]}."))
+                elif socket_type == "ack":
+                    logging.info(print_colour
+                                 .PrintColor
+                                 .print_in_green_back(f"Accepted connection from {addr[0]}. "
+                                                      f"Process {self.process_config['name']} is ready to send "
+                                                      f"acknowledgements to {host_relation_name} on {addr[0]}:{addr[1]}."))
             except socket.timeout:
                 # logging.info("Server is idle.")
                 pass
@@ -49,8 +52,7 @@ class ProcessHandler:
         while retries > 0:
             try:
                 in_socket.connect((host, port))
-                host_relation_ip = utils.get_key_for_value(self.process_config, host)
-                host_relation = host_relation_ip[0].rsplit("_", 1)[0]
+                host_relation = self.get_host_relation(host)
                 logging.info(print_colour.PrintColor.print_in_red_back(f"{self.process_config['name']} is connected "
                              f"on {host}:{port} and ready to receive data from {self.process_config[host_relation]} ."))
                 return in_socket
@@ -67,5 +69,19 @@ class ProcessHandler:
         print("Failed to connect after multiple attempts.")
         return None
 
-    def create_route(self, retries, delay):
+    def create_data_route(self, retries, delay):
         pass
+
+    def create_ack_route(self, retries, delay):
+        pass
+
+    def get_host_relation(self, host):
+        host_relation_ip = utils.get_key_for_value(self.process_config, host)
+        host_relation = host_relation_ip[0].rsplit("_", 1)[0]
+        return host_relation
+
+    def create_out_data_socket(self, connections, timeout, ip, port):
+        self.create_out_socket(connections, timeout, ip, port, "data")
+
+    def create_out_ack_socket(self, connections, timeout, ip, port):
+        self.create_out_socket(connections, timeout, ip, port, "ack")

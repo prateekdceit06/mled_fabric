@@ -1,7 +1,8 @@
 import os
 
 # List of folder names
-folders = ["1-1", "1-2", "1-3", "1-4", "1-5", "2-1", "2-3", "2-5", "3-1", "3-5"]
+folders = ["1-1", "1-2", "1-3", "1-4",
+           "1-5", "2-1", "2-3", "2-5", "3-1", "3-5"]
 
 # Base directory where these folders are located
 base_dir = "/home/prateek/Documents/FABRIC/mled_fabric"
@@ -20,7 +21,8 @@ def delete_file_from_folders(filename, folders, base_directory):
 
 if __name__ == "__main__":
 
-    files_to_delete_from_processes = ["process_config.json", "ip_list.json"]
+    files_to_delete_from_processes = [
+        "process_config.json", "ip_list.json"]
     files_to_delete_from_server = ["process_A.tar.gz", "process_B.tar.gz",
                                    "process_C.tar.gz", "process_D.tar.gz", "process_E.tar.gz"]
 
