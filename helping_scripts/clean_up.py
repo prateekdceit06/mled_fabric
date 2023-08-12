@@ -12,7 +12,7 @@ def delete_file_from_folders(filename, folders, base_directory):
     for folder in folders:
         # Check if the file is one of the protected files and the folder is "1-1"
         if folder == "1-1" and filename in ["config.py", "master_config.py", "process_config.py", "start.py",
-                                            "utils.py", "ip_list_config.py", "process.py"]:
+                                            "utils.py", "ip_list_config.py", "process.py", "header.py", "packet.py"]:
             print(f"Skipping deletion of {filename} in folder {folder}")
             continue
 
@@ -28,7 +28,7 @@ def delete_file_from_folders(filename, folders, base_directory):
 if __name__ == "__main__":
 
     files_to_delete_from_processes = [
-        "process_config.json", "ip_list.json", "process.py"]
+        "process_config.json", "ip_list.json", "process.py", "header.py", "packet.py"]
     files_to_delete_from_server = ["process_A.tar.gz", "process_B.tar.gz",
                                    "process_C.tar.gz", "process_D.tar.gz", "process_E.tar.gz"]
 

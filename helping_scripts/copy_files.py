@@ -5,9 +5,10 @@ import shutil
 base_dir = "/home/prateek/Documents/FABRIC/mled_fabric"
 
 # List of folders and files
-folders = ["1-1", "1-2", "1-3", "1-4", "1-5", "2-1", "2-3", "2-5", "3-1", "3-5"]
-files_to_copy = ["config.py", "master_config.py", "process_config.py", "start.py",
-                 "utils.py", "ip_list_config.py", "process.py"]
+folders = ["1-1", "1-2", "1-3", "1-4",
+           "1-5", "2-1", "2-3", "2-5", "3-1", "3-5"]
+files_to_copy = ["config.py", "master_config.py", "process_config.py",
+                 "utils.py", "ip_list_config.py", "process.py", "header.py", "packet.py"]
 
 
 def copy_files(source_folder, dest_folder, files):
@@ -23,5 +24,6 @@ def copy_files(source_folder, dest_folder, files):
 
 
 if __name__ == "__main__":
-    for folder in folders[1:]:  # Start from the second folder since we're copying from the first one
+    # Start from the second folder since we're copying from the first one
+    for folder in folders[1:]:
         copy_files("1-1", folder, files_to_copy)
