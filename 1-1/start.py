@@ -29,6 +29,10 @@ def process_create_data_route(process_handler, retries, delay):
     process_handler.create_data_route(retries, delay)
 
 
+def process_create_ack_route(process_handler, retries, delay):
+    process_handler.create_ack_route(retries, delay)
+
+
 def signal_handler(sig, frame):
     logging.info("Gracefully shutting down")
     terminate_event.set()
@@ -64,22 +68,27 @@ if __name__ == '__main__':
     process_handler = process_file.ProcessHandler(
         process_config, terminate_event)
 
-    process_start_in_socket_thread = threading.Thread(target=process_create_data_route,
-                                                      args=(process_handler, retries, delay,))
-    process_start_in_socket_thread.daemon = True
-    process_start_in_socket_thread.start()
+    process_start_in_data_socket_thread = threading.Thread(target=process_create_data_route,
+                                                           args=(process_handler, retries, delay,))
+    process_start_in_data_socket_thread.daemon = True
+    process_start_in_data_socket_thread.start()
 
-    process_create_out_socket_thread = threading.Thread(target=process_create_out_data_socket,
-                                                        args=(process_handler, connections, timeout, client_ip))
-    process_create_out_socket_thread.daemon = True
-    process_create_out_socket_thread.start()
+    process_start_in_ack_socket_thread = threading.Thread(target=process_create_ack_route,
+                                                          args=(process_handler, retries, delay,))
+    process_start_in_ack_socket_thread.daemon = True
+    process_start_in_ack_socket_thread.start()
+
+    process_create_out_data_socket_thread = threading.Thread(target=process_create_out_data_socket,
+                                                             args=(process_handler, connections, timeout, client_ip))
+    process_create_out_data_socket_thread.daemon = True
+    process_create_out_data_socket_thread.start()
 
     process_create_out_ack_socket_thread = threading.Thread(target=process_create_out_ack_socket,
                                                             args=(process_handler, connections, timeout, client_ip))
     process_create_out_ack_socket_thread.daemon = True
     process_create_out_ack_socket_thread.start()
 
-    process_create_out_socket_thread.join()
+    process_create_out_data_socket_thread.join()
     process_create_out_ack_socket_thread.join()
 
     logging.info("Process Ended.")
