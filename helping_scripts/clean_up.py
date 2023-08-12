@@ -10,6 +10,12 @@ base_dir = "/home/prateek/Documents/FABRIC/mled_fabric"
 
 def delete_file_from_folders(filename, folders, base_directory):
     for folder in folders:
+        # Check if the file is one of the protected files and the folder is "1-1"
+        if folder == "1-1" and filename in ["config.py", "master_config.py", "process_config.py", "start.py",
+                                            "utils.py", "ip_list_config.py", "process.py"]:
+            print(f"Skipping deletion of {filename} in folder {folder}")
+            continue
+
         file_path = os.path.join(base_directory, folder, filename)
         if os.path.exists(file_path):
             try:

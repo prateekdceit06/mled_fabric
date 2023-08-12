@@ -47,18 +47,18 @@ class ProcessHandlerBase:
                     out_server_socket.close()
                 logging.error(f"Error on socket accept: {e}")
 
-    def connect_in_socket(self, in_socket, retries, delay, host, port):
+    def connect_in_socket(self, in_socket, retries, delay, host, port, socket_type):
         host_relation = None
         while retries > 0:
             try:
                 in_socket.connect((host, port))
                 host_relation = self.get_host_relation(host)
                 logging.info(print_colour.PrintColor.print_in_red_back(f"{self.process_config['name']} is connected "
-                             f"on {host}:{port} and ready to receive data from {self.process_config[host_relation]} ."))
+                             f"on {host}:{port} and ready to receive {socket_type} from {self.process_config[host_relation]} ."))
                 return in_socket
             except socket.error as e:
                 if e.errno == 111:  # Connection refused error
-                    logging.error(f"Connection refused to {self.process_config.get(host_relation)} "
+                    logging.error(f"Connection ({socket_type}) refused to {self.process_config.get(host_relation)} "
                                   f"on {host}:{port}."
                                   f" Retrying in {delay} seconds...")
                     time.sleep(delay)
