@@ -18,10 +18,7 @@ class ProcessHandler(ProcessHandlerBase):
             in_data_socket, retries, delay, host, port, "data")
 
     def find_data_host_port(self):
-        if self.process_config['parent'] is not None:
-            host, port = self.process_config['parent_ip'], self.process_config['parent_data_port']
-        else:
-            host, port = self.process_config['left_neighbor_ip'], self.process_config['left_neighbor_data_port']
+        host, port = self.process_config['parent_ip'], self.process_config['parent_data_port']
         return host, port
 
     def create_ack_route(self, retries, delay):
