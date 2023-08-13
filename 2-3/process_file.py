@@ -29,40 +29,18 @@ class ProcessHandler(ProcessHandlerBase):
         self.in_ack_socket_up = None
         self.in_ack_socket_down = None
         self.socket_list = [
-            self.out_data_socket_up,
-            self.out_data_socket_down,
-            self.out_ack_socket_up,
-            self.out_ack_socket_down,
-            self.in_data_socket_up,
-            self.in_data_socket_down,
-            self.in_ack_socket_up,
-            self.in_ack_socket_down
+            'out_data_socket_up',
+            'out_data_socket_down',
+            'out_ack_socket_up',
+            'out_ack_socket_down',
+            'in_data_socket_up',
+            'in_data_socket_down',
+            'in_ack_socket_up',
+            'in_ack_socket_down'
         ]
 
-    def out_socket_up_handler(self, connections, timeout, ip, port, socket_type):
-        if socket_type == "data":
-
-            out_data_socket_up_generator = super().create_out_socket(
-                connections, timeout, ip, port, socket_type)
-            self.out_data_socket_up, self.out_data_addr_up = next(
-                out_data_socket_up_generator, (None, None))
-        elif socket_type == "ack":
-            out_ack_socket_up_generator = super().create_out_socket(
-                connections, timeout, ip, port, socket_type)
-            self.out_ack_socket_up, self.out_ack_addr_up = next(
-                out_ack_socket_up_generator, (None, None))
-
-    def out_socket_down_handler(self, connections, timeout, ip, port, socket_type):
-        if socket_type == "data":
-            out_data_socket_down_generator = super().create_out_socket(
-                connections, timeout, ip, port, socket_type)
-            self.out_data_socket_down, self.out_data_addr_down = next(
-                out_data_socket_down_generator, (None, None))
-        elif socket_type == "ack":
-            out_ack_socket_down_generator = super().create_out_socket(
-                connections, timeout, ip, port, socket_type)
-            self.out_ack_socket_down, self.out_ack_addr_down = next(
-                out_ack_socket_down_generator, (None, None))
+    def get_socket_by_name(self, name):
+        return getattr(self, name)
 
     def in_socket_up_handler(self, in_socket_up, retries, delay, up_host, up_port, socket_type):
         if socket_type == "data":
@@ -95,7 +73,6 @@ class ProcessHandler(ProcessHandlerBase):
                                                    args=(in_socket_up, retries, delay, up_host, up_port, "data",))
             # in_socket_up_thread.daemon = True
             in_socket_up_thread.start()
-            logging.info("Process E: up Data route created")
 
         in_socket_down = utils.create_client_socket(
             self.process_config['ip'], 0)
@@ -105,7 +82,6 @@ class ProcessHandler(ProcessHandlerBase):
                                                        retries, delay, down_host, down_port, "data",))
         # in_socket_down_thread.daemon = True
         in_socket_down_thread.start()
-        logging.info("Process E: down Data route created")
 
     def find_data_host_port_down(self):
         if self.process_config['child'] is not None:
@@ -153,31 +129,37 @@ class ProcessHandler(ProcessHandlerBase):
 
     def create_out_socket(self, connections, timeout, ip, port, socket_type):
 
-        out_server_socket_down_thread = threading.Thread(target=self.out_socket_down_handler,
-                                                         args=(connections, timeout, ip, port, socket_type,))
-        # out_server_socket_down_thread.daemon = True
-        out_server_socket_down_thread.start()
+        if socket_type == "data":
+            out_data_socket_down_generator = super().create_out_socket(
+                connections, timeout, ip, port, socket_type)
+            self.out_data_socket_down, self.out_data_addr_down = next(
+                out_data_socket_down_generator, (None, None))
+        elif socket_type == "ack":
+            out_ack_socket_down_generator = super().create_out_socket(
+                connections, timeout, ip, port, socket_type)
+            self.out_ack_socket_down, self.out_ack_addr_down = next(
+                out_ack_socket_down_generator, (None, None))
 
         if self.process_config['parent'] is not None:
             port = port + 100
-            out_server_socket_up_thread = threading.Thread(target=self.out_socket_up_handler,
-                                                           args=(connections, timeout,
-                                                                 ip, port, socket_type,))
-            # out_server_socket_up_thread.daemon = True
-            out_server_socket_up_thread.start()
-            out_server_socket_up_thread.join()
-        out_server_socket_down_thread.join()
+            if socket_type == "data":
+                out_data_socket_up_generator = super().create_out_socket(
+                    connections, timeout, ip, port, socket_type)
+                self.out_data_socket_up, self.out_data_addr_up = next(
+                    out_data_socket_up_generator, (None, None))
+            elif socket_type == "ack":
+                out_ack_socket_up_generator = super().create_out_socket(
+                    connections, timeout, ip, port, socket_type)
+                self.out_ack_socket_up, self.out_ack_addr_up = next(
+                    out_ack_socket_up_generator, (None, None))
 
         logging.info("COMPLETED THREAD EXECUTION")
 
-    def create_out_data_socket(self, connections, timeout, ip):
+    def create_out_sockets(self, connections, timeout, ip):
         port = self.process_config['data_port']
         self.create_out_socket(connections, timeout, ip, port, "data")
-
-    def create_out_ack_socket(self, connections, timeout, ip):
         port = self.process_config['ack_port']
         self.create_out_socket(connections, timeout, ip, port, "ack")
-
-    def create_out_sockets(self, connections, timeout, ip):
-        self.create_out_data_socket(connections, timeout, ip)
-        self.create_out_ack_socket(connections, timeout, ip)
+        time.sleep(self.process_config['delay_process_socket']+5)
+        for sock in self.socket_list:
+            print(self.get_socket_by_name(sock))

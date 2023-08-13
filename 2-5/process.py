@@ -87,8 +87,11 @@ class ProcessHandlerBase:
         pass
 
     def get_host_relation(self, host):
+        logging.info(f"Host:  {host}")
         host_relation_ip = utils.get_key_for_value(self.process_config, host)
+        logging.info(f"Host Relation IP:  {host_relation_ip}")
         host_relation = host_relation_ip[0].rsplit("_", 1)[0]
+        logging.info(f"Host Relation :  {host_relation}")
         return host_relation
 
     def create_out_data_socket(self, connections, timeout, ip, port):
@@ -100,4 +103,3 @@ class ProcessHandlerBase:
         out_ack_socket_generator = self.create_out_socket(
             connections, timeout, ip, port, "ack")
         return out_ack_socket_generator
-

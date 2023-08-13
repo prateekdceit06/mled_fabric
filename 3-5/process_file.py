@@ -2,22 +2,23 @@
 
 from process import ProcessHandlerBase
 import utils
+import time
 
 
 class ProcessHandler(ProcessHandlerBase):
 
     def __init__(self, process_config, terminate_event):
         super().__init__(process_config, terminate_event)
-        self.out_data_socket = None
         self.out_ack_socket = None
-        self.out_data_addr = None
         self.out_ack_addr = None
         self.in_data_socket = None
         self.socket_list = [
-            self.out_data_socket,
-            self.out_ack_socket,
-            self.in_data_socket
+            'out_ack_socket',
+            'in_data_socket'
         ]
+
+    def get_socket_by_name(self, name):
+        return getattr(self, name)
 
     def create_data_route(self, retries, delay):
         in_data_socket = utils.create_client_socket(
@@ -50,3 +51,6 @@ class ProcessHandler(ProcessHandlerBase):
     def create_out_sockets(self, connections, timeout, ip):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
+        time.sleep(self.process_config['delay_process_socket']+5)
+        for sock in self.socket_list:
+            print(self.get_socket_by_name(sock))

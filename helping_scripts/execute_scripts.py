@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 
 def execute_python_script(script_name):
@@ -14,3 +15,4 @@ if __name__ == "__main__":
 
     for script in scripts:
         execute_python_script(script)
+        time.sleep(5)
