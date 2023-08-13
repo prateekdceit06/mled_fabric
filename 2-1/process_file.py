@@ -60,5 +60,6 @@ class ProcessHandler(ProcessHandlerBase):
         self.out_ack_socket, self.out_ack_addr = next(
             out_ack_socket_generator, (None, None))
 
-    def are_sockets_alive(self):
-        return super().are_sockets_alive(self.socket_list)
+    def create_out_sockets(self, connections, timeout, ip):
+        self.create_out_data_socket(connections, timeout, ip)
+        self.create_out_ack_socket(connections, timeout, ip)

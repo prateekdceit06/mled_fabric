@@ -27,7 +27,6 @@ class ProcessHandler(ProcessHandlerBase):
             in_data_socket, retries, delay, host, port, "data")
         self.in_data_socket = next(in_data_socket_generator, None)
 
-
     def find_data_host_port(self):
         host, port = self.process_config['child_ip'], self.process_config['child_data_port']
         return host, port
@@ -41,11 +40,13 @@ class ProcessHandler(ProcessHandlerBase):
                 out_ack_socket_generator, (None, None))
 
     def create_out_data_socket(self, connections, timeout, ip):
-        data_port = self.process_config['data_port']
-        out_data_socket_generator = super().create_out_data_socket(
-            connections, timeout, ip, data_port)
-        self.out_data_socket, self.out_data_addr = next(
-            out_data_socket_generator, (None, None))
+        if self.process_config['data_port'] is not None:
+            data_port = self.process_config['data_port']
+            out_data_socket_generator = super().create_out_data_socket(
+                connections, timeout, ip, data_port)
+            self.out_data_socket, self.out_data_addr = next(
+                out_data_socket_generator, (None, None))
 
-    def are_sockets_alive(self):
-        return super().are_sockets_alive(self.socket_list)
+    def create_out_sockets(self, connections, timeout, ip):
+        self.create_out_data_socket(connections, timeout, ip)
+        self.create_out_ack_socket(connections, timeout, ip)

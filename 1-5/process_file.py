@@ -45,7 +45,6 @@ class ProcessHandler(ProcessHandlerBase):
             in_ack_socket, retries, delay, host, port, "ack")
         self.in_ack_socket = next(in_ack_socket_generator, None)
 
-
     def find_ack_host_port(self):
         host, port = self.process_config['parent_ip'], self.process_config['parent_ack_port']
         return host, port
@@ -64,5 +63,6 @@ class ProcessHandler(ProcessHandlerBase):
         self.out_ack_socket, self.out_ack_addr = next(
             out_ack_socket_generator, (None, None))
 
-    def are_sockets_alive(self):
-        return super().are_sockets_alive(self.socket_list)
+    def create_out_sockets(self, connections, timeout, ip):
+        self.create_out_data_socket(connections, timeout, ip)
+        self.create_out_ack_socket(connections, timeout, ip)

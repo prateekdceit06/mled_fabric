@@ -178,5 +178,6 @@ class ProcessHandler(ProcessHandlerBase):
         port = self.process_config['ack_port']
         self.create_out_socket(connections, timeout, ip, port, "ack")
 
-    def are_sockets_alive(self):
-        return super().are_sockets_alive(self.socket_list)
+    def create_out_sockets(self, connections, timeout, ip):
+        self.create_out_data_socket(connections, timeout, ip)
+        self.create_out_ack_socket(connections, timeout, ip)

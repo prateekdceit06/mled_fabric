@@ -101,16 +101,3 @@ class ProcessHandlerBase:
             connections, timeout, ip, port, "ack")
         return out_ack_socket_generator
 
-    def is_socket_connected(self, sock):
-        if sock is None:
-            return False
-        try:
-            sock.getpeername()
-            return True
-        except socket.error:
-            return False
-
-    def are_sockets_alive(self, sockets):
-        for sock in sockets:
-            logging.info(f"Socket {sock} is alive: {self.is_socket_connected(sock)}")
-        return all(map(self.is_socket_connected, sockets))

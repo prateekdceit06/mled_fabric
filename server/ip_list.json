@@ -57,12 +57,12 @@
       "name": "3-1",
       "ip": "10.0.0.100",
       "data_port": 54500,
-      "ack_port": 54501
+      "ack_port": null
     },
     {
       "name": "3-5",
       "ip": "10.0.0.109",
-      "data_port": 55000,
+      "data_port": null,
       "ack_port": 55001
     }
   ]

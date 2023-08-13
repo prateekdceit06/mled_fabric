@@ -28,11 +28,12 @@ class ProcessHandler(ProcessHandlerBase):
                 out_data_socket_generator, (None, None))
 
     def create_out_ack_socket(self, connections, timeout, ip):
-        ack_port = self.process_config['ack_port']
-        out_ack_socket_generator = super().create_out_ack_socket(
-            connections, timeout, ip, ack_port)
-        self.out_ack_socket, self.out_ack_addr = next(
-            out_ack_socket_generator, (None, None))
+        if self.process_config['ack_port'] is not None:
+            ack_port = self.process_config['ack_port']
+            out_ack_socket_generator = super().create_out_ack_socket(
+                connections, timeout, ip, ack_port)
+            self.out_ack_socket, self.out_ack_addr = next(
+                out_ack_socket_generator, (None, None))
 
     def create_ack_route(self, retries, delay):
         in_ack_socket = utils.create_client_socket(
@@ -42,15 +43,10 @@ class ProcessHandler(ProcessHandlerBase):
             in_ack_socket, retries, delay, host, port, "ack")
         self.in_ack_socket = next(in_ack_socket_generator, None)
 
-
     def find_ack_host_port(self):
         host, port = self.process_config['child_ip'], self.process_config['child_ack_port']
         return host, port
 
-    def check_sockets(self):
-        if self.out_data_socket is None or self.out_ack_socket is None or self.out_data_addr is None or self.out_ack_addr is None or self.in_ack_socket is None:
-            return False
-        return True
-
-    def are_sockets_alive(self):
-        return super().are_sockets_alive(self.socket_list)
+    def create_out_sockets(self, connections, timeout, ip):
+        self.create_out_data_socket(connections, timeout, ip)
+        self.create_out_ack_socket(connections, timeout, ip)
