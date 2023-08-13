@@ -17,9 +17,6 @@ class ProcessHandler(ProcessHandlerBase):
             'in_data_socket'
         ]
 
-    def get_socket_by_name(self, name):
-        return getattr(self, name)
-
     def create_data_route(self, retries, delay):
         in_data_socket = utils.create_client_socket(
             self.process_config['ip'], 0)
@@ -51,6 +48,13 @@ class ProcessHandler(ProcessHandlerBase):
     def create_out_sockets(self, connections, timeout, ip):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
-        time.sleep(self.process_config['delay_process_socket']+5)
+
+        while True:
+            socekts_ready = super().are_sockets_alive(self.socket_list)
+            if socekts_ready:
+                break
+            else:
+                time.sleep(self.process_config['delay_process_socket'])
+
         for sock in self.socket_list:
-            print(self.get_socket_by_name(sock))
+            print(super().get_socket_by_name(sock))

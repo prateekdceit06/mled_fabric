@@ -25,19 +25,21 @@ class ProcessHandlerBase:
                 while True:
                     out_socket, addr = out_server_socket.accept()
                     host_relation = self.get_host_relation(addr[0])
-                    if host_relation is not "no_relation":
+                    if host_relation == "no_relation":
+                        continue
+                    else:
                         break
                 host_relation_name = self.process_config[host_relation]
                 if socket_type == "data":
                     logging.info(print_colour
                                  .PrintColor
-                                 .print_in_green_back(f"Accepted connection from {addr[0]}. "
+                                 .print_in_green_back(f"Accepted connection from {addr[0]}:{addr[1]}. "
                                                       f"Process {self.process_config['name']} is ready to send data to "
                                                       f"{host_relation_name} on {addr[0]}:{addr[1]}."))
                 elif socket_type == "ack":
                     logging.info(print_colour
                                  .PrintColor
-                                 .print_in_green_back(f"Accepted connection from {addr[0]}. "
+                                 .print_in_green_back(f"Accepted connection from {addr[0]}:{addr[1]}. "
                                                       f"Process {self.process_config['name']} is ready to send "
                                                       f"acknowledgements to {host_relation_name} on {addr[0]}:{addr[1]}."))
                 yield out_socket, addr
@@ -108,3 +110,19 @@ class ProcessHandlerBase:
         out_ack_socket_generator = self.create_out_socket(
             connections, timeout, ip, port, "ack")
         return out_ack_socket_generator
+
+    def get_socket_by_name(self, name):
+        return getattr(self, name)
+
+    def is_socket_connected(self, socket_name):
+        sock = self.get_socket_by_name(socket_name)
+        if sock is None:
+            return False
+        try:
+            sock.getpeername()
+            return True
+        except socket.error:
+            return False
+
+    def are_sockets_alive(self, socket_names):
+        return all(map(self.is_socket_connected, socket_names))

@@ -39,9 +39,6 @@ class ProcessHandler(ProcessHandlerBase):
             'in_ack_socket_down'
         ]
 
-    def get_socket_by_name(self, name):
-        return getattr(self, name)
-
     def in_socket_up_handler(self, in_socket_up, retries, delay, up_host, up_port, socket_type):
         if socket_type == "data":
             in_data_socket_up_generator = super().connect_in_socket(
@@ -146,6 +143,20 @@ class ProcessHandler(ProcessHandlerBase):
         self.create_out_socket(connections, timeout, ip, port, "data")
         port = self.process_config['ack_port']
         self.create_out_socket(connections, timeout, ip, port, "ack")
-        time.sleep(self.process_config['delay_process_socket']+5)
-        for sock in self.socket_list:
-            print(self.get_socket_by_name(sock))
+
+        if self.process_config['parent'] is None:
+            self.socket_list = [
+                'out_data_socket_down',
+                'out_ack_socket_down',
+                'in_data_socket_down',
+                'in_ack_socket_down'
+            ]
+
+        while True:
+            socekts_ready = super().are_sockets_alive(self.socket_list)
+            if socekts_ready:
+                break
+            else:
+                time.sleep(self.process_config['delay_process_socket'])
+
+        
