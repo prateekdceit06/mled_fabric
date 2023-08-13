@@ -92,6 +92,9 @@ if __name__ == '__main__':
     process_create_out_data_socket_thread.join()
     process_create_out_ack_socket_thread.join()
 
+    while not process_handler.are_sockets_alive():
+        time.sleep(5)
+
     while True:
         pass
 

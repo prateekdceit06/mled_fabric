@@ -112,6 +112,5 @@ class ProcessHandlerBase:
 
     def are_sockets_alive(self, sockets):
         for sock in sockets:
-            logging.info(
-                f"Socket {sock} is alive: {self.is_socket_connected(sock)}")
+            logging.info(f"Socket {sock} is alive: {self.is_socket_connected(sock)}")
         return all(map(self.is_socket_connected, sockets))
