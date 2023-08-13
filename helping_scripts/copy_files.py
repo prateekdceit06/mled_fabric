@@ -7,7 +7,7 @@ base_dir = "/home/prateek/Documents/FABRIC/mled_fabric"
 # List of folders and files
 folders = ["1-1", "1-2", "1-3", "1-4",
            "1-5", "2-1", "2-3", "2-5", "3-1", "3-5"]
-files_to_copy = ["config.py", "master_config.py", "process_config.py",
+files_to_copy = ["config.py", "master_config.py", "process_config.py", "start.py",
                  "utils.py", "ip_list_config.py", "process.py", "header.py", "packet.py"]
 
 

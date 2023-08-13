@@ -38,6 +38,7 @@ class ProcessHandlerBase:
                                  .print_in_green_back(f"Accepted connection from {addr[0]}. "
                                                       f"Process {self.process_config['name']} is ready to send "
                                                       f"acknowledgements to {host_relation_name} on {addr[0]}:{addr[1]}."))
+                yield out_socket, addr
             except socket.timeout:
                 # logging.info("Server is idle.")
                 pass
@@ -47,24 +48,24 @@ class ProcessHandlerBase:
                     out_server_socket.close()
                 logging.error(f"Error on socket accept: {e}")
 
-    def connect_in_socket(self, in_socket, retries, delay, host, port):
+    def connect_in_socket(self, in_socket, retries, delay, host, port, socket_type):
         host_relation = None
         while retries > 0:
             try:
                 in_socket.connect((host, port))
                 host_relation = self.get_host_relation(host)
                 logging.info(print_colour.PrintColor.print_in_red_back(f"{self.process_config['name']} is connected "
-                             f"on {host}:{port} and ready to receive data from {self.process_config[host_relation]} ."))
+                             f"on {host}:{port} and ready to receive {socket_type} from {self.process_config[host_relation]} ."))
                 yield in_socket
-                while True:
-                    try:
-                        in_socket.getpeername()
-                        time.sleep(delay)
-                    except socket.error as e:
-                        if e.errno == 107:
-                            logging.info(print_colour.PrintColor.print_in_yellow_back(
-                                f"Connection closed by {host}:{port}."))
-                            break
+                # while True:
+                #     try:
+                #         in_socket.getpeername()
+                #         time.sleep(delay)
+                #     except socket.error as e:
+                #         if e.errno == 107:
+                #             logging.info(print_colour.PrintColor.print_in_yellow_back(
+                #                 f"Connection closed by {host}:{port}."))
+                #             break
 
             except socket.error as e:
                 if e.errno == 111:  # Connection refused error
@@ -76,7 +77,8 @@ class ProcessHandlerBase:
                 else:
                     logging.error(f"Error on socket connect: {e}")
                     raise e
-        print("Failed to connect after multiple attempts.")
+        logging.info("Failed to connect after multiple attempts.")
+        yield None
 
     def create_data_route(self, retries, delay):
         pass
@@ -90,7 +92,23 @@ class ProcessHandlerBase:
         return host_relation
 
     def create_out_data_socket(self, connections, timeout, ip, port):
-        self.create_out_socket(connections, timeout, ip, port, "data")
+        out_data_socket_generator = self.create_out_socket(
+            connections, timeout, ip, port, "data")
+        return out_data_socket_generator
 
     def create_out_ack_socket(self, connections, timeout, ip, port):
-        self.create_out_socket(connections, timeout, ip, port, "ack")
+        out_ack_socket_generator = self.create_out_socket(
+            connections, timeout, ip, port, "ack")
+        return out_ack_socket_generator
+
+    def is_socket_connected(self, sock):
+        if sock is None:
+            return False
+        try:
+            sock.getpeername()
+            return True
+        except socket.error:
+            return False
+
+    def are_sockets_alive(self, sockets):
+        return all(map(self.is_socket_connected, sockets))

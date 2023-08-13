@@ -6,7 +6,7 @@ import print_colour as pc
 import tarfile
 
 
-logging_format = '%(pathname)s:%(lineno)d - %(funcName)s - %(levelname)s - %(message)s'
+logging_format = '%(pathname)s:%(lineno)d - %(threadName)s - %(funcName)s - %(levelname)s - %(message)s'
 
 logging.basicConfig(format=logging_format, level=logging.INFO)
 

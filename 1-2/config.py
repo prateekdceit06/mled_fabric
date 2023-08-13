@@ -10,6 +10,7 @@ import logging
 
 logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
+
 def delete_file(file_path):
     success = utils.delete_file(file_path)
     if success:
@@ -28,8 +29,8 @@ class ConfigClient:
 
     def get_config(self):
 
-        client_socket = utils.create_client_socket(self.client_ip, self.client_port)
-
+        client_socket = utils.create_client_socket(
+            self.client_ip, self.client_port)
 
         try:
             # Connect to the server
@@ -41,13 +42,16 @@ class ConfigClient:
             logging.error(f"Connection error: {e}")
             sys.exit(1)
 
-        logging.info(f"Connected to server at {self.server_ip}:{self.server_port}")
+        logging.info(
+            f"Connected to server at {self.server_ip}:{self.server_port}")
 
         ip_list_config = self.get_ip_list_config(client_socket)
 
-        master_config, master_config_file_path = self.get_master_config(client_socket)
+        master_config, master_config_file_path = self.get_master_config(
+            client_socket)
 
-        process_config = self.create_process_config(master_config, master_config_file_path, ip_list_config)
+        process_config = self.create_process_config(
+            master_config, master_config_file_path, ip_list_config)
 
         char_to_send = process_config['process_type']
 
@@ -62,7 +66,8 @@ class ConfigClient:
         return process_config
 
     def get_master_config(self, client_socket):
-        master_config_file_path = os.path.join(self.directory, 'master_config.json')
+        master_config_file_path = os.path.join(
+            self.directory, 'master_config.json')
         master_config_handler = MasterConfigHandler(master_config_file_path)
         master_config_handler.get_master_config(client_socket)
         logging.info("Received master config from server")
@@ -76,10 +81,13 @@ class ConfigClient:
         logging.info("Received Ip list config from server")
         ip_list_config = utils.read_json_file(ip_list_config_file_path)
         return ip_list_config
+
     def create_process_config(self, master_config, master_config_file_path, ip_list_config):
-        process_config_file_path = os.path.join(self.directory, 'process_config.json')
+        process_config_file_path = os.path.join(
+            self.directory, 'process_config.json')
         process_config_handler = ProcessConfigHandler(process_config_file_path)
-        process_config = process_config_handler.create_process_config(master_config, ip_list_config, self.client_ip)
+        process_config = process_config_handler.create_process_config(
+            master_config, ip_list_config, self.client_ip)
         utils.write_json_file(process_config, process_config_file_path)
         logging.info("Created process config")
         delete_file(master_config_file_path)
