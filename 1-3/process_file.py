@@ -69,19 +69,14 @@ class ProcessHandler(ProcessHandlerBase):
             in_socket_up = utils.create_client_socket(
                 self.process_config['ip'], 0)
             up_host, up_port = self.find_data_host_port_up()
-            in_socket_up_thread = threading.Thread(target=self.in_socket_up_handler,
-                                                   args=(in_socket_up, retries, delay, up_host, up_port, "data",))
-            # in_socket_up_thread.daemon = True
-            in_socket_up_thread.start()
+            self.in_socket_up_handler(
+                in_socket_up, retries, delay, up_host, up_port, "data")
 
         in_socket_down = utils.create_client_socket(
             self.process_config['ip'], 0)
         down_host, down_port = self.find_data_host_port_down()
-        in_socket_down_thread = threading.Thread(target=self.in_socket_down_handler,
-                                                 args=(in_socket_down,
-                                                       retries, delay, down_host, down_port, "data",))
-        # in_socket_down_thread.daemon = True
-        in_socket_down_thread.start()
+        self.in_socket_down_handler(
+            in_socket_down, retries, delay, down_host, down_port, "data")
 
     def find_data_host_port_down(self):
         if self.process_config['child'] is not None:
@@ -100,21 +95,14 @@ class ProcessHandler(ProcessHandlerBase):
             in_socket_up = utils.create_client_socket(
                 self.process_config['ip'], 0)
             up_host, up_port = self.find_ack_host_port_up()
-            in_socket_up_thread = threading.Thread(target=self.in_socket_up_handler,
-                                                   args=(in_socket_up, retries, delay, up_host, up_port, "ack"))
-            # in_socket_up_thread.daemon = True
-            in_socket_up_thread.start()
-
-        # parent_thread_id = threading.currentThread().ident
+            self.in_socket_up_handler(
+                in_socket_up, retries, delay, up_host, up_port, "ack")
 
         in_socket_down = utils.create_client_socket(
             self.process_config['ip'], 0)
         down_host, down_port = self.find_ack_host_port_down()
-        in_socket_down_thread = threading.Thread(target=self.in_socket_down_handler,
-                                                 args=(in_socket_down,
-                                                       retries, delay, down_host, down_port, "ack"))
-        # in_socket_down_thread.daemon = True
-        in_socket_down_thread.start()
+        self.in_socket_down_handler(
+            in_socket_down, retries, delay, down_host, down_port, "ack")
 
     def find_ack_host_port_down(self):
         if self.process_config['child'] is not None:
@@ -152,8 +140,6 @@ class ProcessHandler(ProcessHandlerBase):
                     connections, timeout, ip, port, socket_type)
                 self.out_ack_socket_up, self.out_ack_addr_up = next(
                     out_ack_socket_up_generator, (None, None))
-
-        logging.info("COMPLETED THREAD EXECUTION")
 
     def create_out_sockets(self, connections, timeout, ip):
         port = self.process_config['data_port']
