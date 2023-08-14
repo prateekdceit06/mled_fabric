@@ -23,7 +23,7 @@ class CircularBuffer:
         with self.lock:
             self.head = (self.head + 1) % len(self.buffer)
 
-    def get_chunk(self):
+    def get(self):
         with self.lock:
             return self.buffer[self.head]
 
@@ -33,6 +33,19 @@ class CircularBuffer:
                 if packet and packet.sequence_number == sequence_number:
                     return packet
             return None
+
+    def remove_by_sequence(self, sequence_number):
+        with self.lock:
+            for i in range(len(self.buffer)):
+                packet = self.buffer[i]
+                if packet and packet.sequence_number == sequence_number:
+                    # Remove the packet and shift elements
+                    self.buffer = self.buffer[:i] + self.buffer[i+1:] + [None]
+                    if i < self.tail:
+                        self.tail -= 1
+                    if i < self.head:
+                        self.head -= 1
+                    break
 
     def is_full(self):
         with self.lock:

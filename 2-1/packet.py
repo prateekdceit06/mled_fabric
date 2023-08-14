@@ -5,6 +5,10 @@ if TYPE_CHECKING:
 
 
 class Packet:
-    def __init__(self, header: 'Header', data: bytes):
+    def __init__(self, header: 'Header', chunk: bytes):
         self.header = header
-        self.data = data
+        self.chunk = chunk
+        self.seq_num = header.seq_num
+
+    def __str__(self):
+        return f"Packet({self.seq_num}, {self.header}, {self.chunk})"
