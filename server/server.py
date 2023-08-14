@@ -73,7 +73,7 @@ class Server:
                 try:
                     client_socket, addr = server_socket.accept()
                     logging.info(f"Accepted connection from {addr[0]}")
-                    client_thread = threading.Thread(target=self.client_handler, name="client_handler",
+                    client_thread = threading.Thread(target=self.client_handler, name="ClientHandlerThread",
                                                      args=(server_socket, client_socket, addr,
                                                            client_ips, connected_clients))
                     client_thread.start()

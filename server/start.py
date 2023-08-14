@@ -33,7 +33,7 @@ if __name__ == "__main__":
     master_process = Server(directory)
 
     server_thread = threading.Thread(
-        target=start_server_in_thread, name='server_thread', args=(master_process,))
+        target=start_server_in_thread, name='ServerThread', args=(master_process,))
     server_thread.start()
 
     logging.info("Setup Completed.")

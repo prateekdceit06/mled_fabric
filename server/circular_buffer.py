@@ -30,7 +30,7 @@ class CircularBuffer:
     def get_by_sequence(self, sequence_number):
         with self.lock:
             for packet in self.buffer:
-                if packet and packet.sequence_number == sequence_number:
+                if packet and packet.seq_num == sequence_number:
                     return packet
             return None
 
@@ -38,7 +38,7 @@ class CircularBuffer:
         with self.lock:
             for i in range(len(self.buffer)):
                 packet = self.buffer[i]
-                if packet and packet.sequence_number == sequence_number:
+                if packet and packet.seq_num == sequence_number:
                     # Remove the packet and shift elements
                     self.buffer = self.buffer[:i] + self.buffer[i+1:] + [None]
                     if i < self.tail:

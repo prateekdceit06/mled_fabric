@@ -42,4 +42,4 @@ class SendReceive:
             received_errors_format, received_errors_data))
         received_chunk = receiving_sock.recv(received_size_of_chunk).decode()
 
-        return received_seq_num, received_src, received_dest, received_check_value, received_chunk, received_ack_byte, received_errors
+        return received_seq_num, received_src, received_dest, received_check_value, received_size_of_chunk, received_chunk, received_ack_byte, received_errors

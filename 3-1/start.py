@@ -44,8 +44,8 @@ if __name__ == '__main__':
 
     results = {}
 
-    config_thread = threading.Thread(
-        target=fetch_config, args=(config_handler, results,))
+    config_thread = threading.Thread(name='ConfigThread',
+                                     target=fetch_config, args=(config_handler, results,))
     config_thread.start()
     config_thread.join()
 
@@ -62,20 +62,17 @@ if __name__ == '__main__':
     process_handler = process_file.ProcessHandler(
         process_config, terminate_event)
 
-    process_start_in_socket_thread = threading.Thread(target=process_create_route, name='process_create_routes',
-                                                      args=(process_handler, retries, delay,))
-    process_start_in_socket_thread.daemon = True
-    process_start_in_socket_thread.start()
+    create_routes_thread = threading.Thread(target=process_create_route, name='CreateRoutesThread',
+                                            args=(process_handler, retries, delay,))
+    create_routes_thread.daemon = True
+    create_routes_thread.start()
 
-    process_create_out_socket_thread = threading.Thread(target=process_create_out_socket, name='process_create_out_sockets',
-                                                        args=(process_handler, connections, timeout, client_ip))
-    process_create_out_socket_thread.daemon = True
-    process_create_out_socket_thread.start()
+    create_out_socket_thread = threading.Thread(target=process_create_out_socket, name='CreateOutSocketThread',
+                                                args=(process_handler, connections, timeout, client_ip))
+    create_out_socket_thread.daemon = True
+    create_out_socket_thread.start()
 
-    process_create_out_socket_thread.join()
-
-    # while not process_handler.are_sockets_alive():
-    #     time.sleep(5)
+    create_out_socket_thread.join()
 
     while True:
         pass
