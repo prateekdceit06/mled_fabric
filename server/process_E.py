@@ -5,6 +5,8 @@ import utils
 import logging
 import threading
 import time
+from circular_buffer import CircularBuffer
+
 
 logging_format = utils.logging_format+" %(threadName)s"
 
@@ -38,6 +40,7 @@ class ProcessHandler(ProcessHandlerBase):
             'in_ack_socket_up',
             'in_ack_socket_down'
         ]
+        self.buffer = CircularBuffer(self.process_config['window_size'])
 
     def in_socket_up_handler(self, in_socket_up, retries, delay, up_host, up_port, socket_type):
         if socket_type == "data":
@@ -159,4 +162,5 @@ class ProcessHandler(ProcessHandlerBase):
             else:
                 time.sleep(self.process_config['delay_process_socket'])
 
-        
+        for sock in self.socket_list:
+            print(super().get_socket_by_name(sock))

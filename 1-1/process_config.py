@@ -54,6 +54,7 @@ class ProcessConfigHandler:
             "timeout_process_socket": ip_port_dict['timeout_process_socket'],
             "retries_process_socket": ip_port_dict['retries_process_socket'],
             "delay_process_socket": ip_port_dict['delay_process_socket'],
+            "window_size": self.layer['window_size'],
             "name": self.process['name'],
             "ip": self.process['ip'],
             "data_port": data_port,

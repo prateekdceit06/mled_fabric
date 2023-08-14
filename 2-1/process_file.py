@@ -4,6 +4,7 @@ from process import ProcessHandlerBase
 
 import utils
 import time
+import threading
 
 
 class ProcessHandler(ProcessHandlerBase):
@@ -71,6 +72,7 @@ class ProcessHandler(ProcessHandlerBase):
                 break
             else:
                 time.sleep(self.process_config['delay_process_socket'])
-
+        alive_threads = threading.enumerate()
+        print("Alive threads: ", alive_threads)
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))

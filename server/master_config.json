@@ -6,6 +6,7 @@
   "delay_process_socket" : 10,
   "layers": [
     {
+      "window_size": 10,
       "layer_mtu": 500,
       "layer_id": 1,
       "error_model": {
@@ -16,7 +17,7 @@
       },
       "error_detection_method": {
         "method": "checksum",
-        "checksum_length": "2"
+        "parameter": "2"
       },
       "processes": [
         {
@@ -72,6 +73,7 @@
       ]
     },
     {
+      "window_size": 10,
       "layer_mtu": 1000,
       "layer_id": 2,
       "error_model": {
@@ -82,7 +84,7 @@
       },
       "error_detection_method": {
         "method": "checksum",
-        "checksum_length": "2"
+        "parameter": "2"
       },
       "processes": [
         {
@@ -118,6 +120,7 @@
       ]
     },
     {
+      "window_size": 10,
       "layer_mtu": 2000,
       "layer_id": 3,
       "error_model": {
@@ -128,7 +131,7 @@
       },
       "error_detection_method": {
         "method": "checksum",
-        "checksum_length": 2
+        "parameter": 2
       },
       "processes": [
         {

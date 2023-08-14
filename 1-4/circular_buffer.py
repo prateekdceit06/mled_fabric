@@ -1,0 +1,30 @@
+import threading
+
+
+class CircularBuffer:
+    def __init__(self, size):
+        self.buffer = [None] * size
+        self.head = 0
+        self.tail = 0
+        self.lock = threading.Lock()
+
+    def add(self, chunk):
+        with self.lock:
+            self.buffer[self.tail] = chunk
+            self.tail = (self.tail + 1) % len(self.buffer)
+
+    def remove(self):
+        with self.lock:
+            self.head = (self.head + 1) % len(self.buffer)
+
+    def get_chunk(self):
+        with self.lock:
+            return self.buffer[self.head]
+
+    def is_full(self):
+        with self.lock:
+            return (self.tail + 1) % len(self.buffer) == self.head
+
+    def is_empty(self):
+        with self.lock:
+            return self.head == self.tail
