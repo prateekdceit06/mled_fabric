@@ -62,12 +62,12 @@ if __name__ == '__main__':
     process_handler = process_file.ProcessHandler(
         process_config, terminate_event)
 
-    process_start_in_socket_thread = threading.Thread(target=process_create_route,
+    process_start_in_socket_thread = threading.Thread(target=process_create_route, name='process_create_routes',
                                                       args=(process_handler, retries, delay,))
     process_start_in_socket_thread.daemon = True
     process_start_in_socket_thread.start()
 
-    process_create_out_socket_thread = threading.Thread(target=process_create_out_socket,
+    process_create_out_socket_thread = threading.Thread(target=process_create_out_socket, name='process_create_out_sockets',
                                                         args=(process_handler, connections, timeout, client_ip))
     process_create_out_socket_thread.daemon = True
     process_create_out_socket_thread.start()

@@ -5,6 +5,8 @@ from process import ProcessHandlerBase
 import utils
 import time
 import threading
+from circular_buffer import CircularBuffer
+
 
 
 class ProcessHandler(ProcessHandlerBase):
@@ -19,6 +21,7 @@ class ProcessHandler(ProcessHandlerBase):
         self.out_ack_addr = None
         self.socket_list = ['in_data_socket', 'in_ack_socket',
                             'out_data_socket', 'out_ack_socket']
+        self.buffer = CircularBuffer(self.process_config['window_size'])
 
 
     def create_data_route(self, retries, delay):
@@ -72,7 +75,6 @@ class ProcessHandler(ProcessHandlerBase):
                 break
             else:
                 time.sleep(self.process_config['delay_process_socket'])
-        alive_threads = threading.enumerate()
-        print("Alive threads: ", alive_threads)
+        
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))

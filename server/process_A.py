@@ -8,6 +8,7 @@ from circular_buffer import CircularBuffer
 from header import Header
 from packet import Packet
 from utils import logging_format as logging_format
+import os
 
 import logging
 
@@ -26,9 +27,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             'out_data_socket',
             'in_ack_socket'
         ]
+
         self.sending_data_buffer = CircularBuffer(
             self.process_config['window_size'])
-        self.chunk_size - self.process_config['mtu']
+        self.received_data_buffer = CircularBuffer(
+            self.process_config['window_size'])
+        self.chunk_size = self.process_config['mtu']
 
         self.received_data_buffer_lock = threading.Lock()
         self.buffer_not_full_condition = threading.Condition(
@@ -44,7 +48,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.urgent_send_in_progress = False
 
     def read_file_to_buffer(self):
-        with open('astroMLDataTest.csv', 'rb') as f:
+        path = os.path.abspath(__file__)
+        directory = os.path.dirname(path)
+        file_path = os.path.join(directory, 'astroMLDataTest.csv')
+        with open(file_path, 'rb') as f:
             seq_num = 0
             while True:
                 seq_num += 1
@@ -93,17 +100,23 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     self.sending_data_buffer_condition.notify()
 
     def send_packet_from_buffer(self):
+        last_sent_seq_num = 0  # Initialize to an invalid sequence number
         while True:
             with self.sending_data_buffer_condition:
                 while self.urgent_send_in_progress or self.sending_data_buffer.is_empty():
                     # Wait until there's a packet to send or an urgent send is needed
                     self.sending_data_buffer_condition.wait()
-
-                packet = self.sending_data_buffer.get()
+                seq_num_of_packet_to_send = (
+                    last_sent_seq_num + 1) % (2*self.process_config['window_size'])
+                packet = self.sending_data_buffer.get_by_sequence(
+                    seq_num_of_packet_to_send)
+                if packet is None:
+                    continue
                 with self.send_lock:
                     super().send_data(self.out_data_socket, packet)
                     logging.info(
-                        f"Sent packet {packet.sequence_number} of size {packet.header.size_of_chunk} to {self.out_data_addr[0]}:{self.out_data_addr[1]}")
+                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data} to {self.out_data_addr[0]}:{self.out_data_addr[1]}")
+                    last_sent_seq_num = packet.seq_num
 
     def receive_ack(self):
         while True:
@@ -114,6 +127,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 f"Received {ack_string} for packet {received_seq_num}")
 
             with self.sending_data_buffer_condition:
+
                 if received_ack_byte == 1:
                     self.sending_data_buffer.remove_by_sequence(
                         received_seq_num)
@@ -175,19 +189,23 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))
 
-        read_thread = threading.Thread(target=self.read_file_to_buffer)
+        read_thread = threading.Thread(
+            target=self.read_file_to_buffer, name="ReadThread")
         read_thread.start()
 
         # Thread for prepare_packet_to_send
-        prepare_thread = threading.Thread(target=self.prepare_packet_to_send)
+        prepare_thread = threading.Thread(
+            target=self.prepare_packet_to_send, name="PrepareThread")
         prepare_thread.start()
 
         # Thread for send_packet_from_buffer
-        send_thread = threading.Thread(target=self.send_packet_from_buffer)
+        send_thread = threading.Thread(
+            target=self.send_packet_from_buffer, name="SendThread")
         send_thread.start()
 
         # Thread for receive_ack
-        receive_thread = threading.Thread(target=self.receive_ack)
+        receive_thread = threading.Thread(
+            target=self.receive_ack, name="ReceiveAckThread")
         receive_thread.start()
 
         # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)

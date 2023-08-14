@@ -7,7 +7,7 @@ import struct
 
 class SendReceive:
 
-    def get_value_to_check(chunk, method, parameter):
+    def get_value_to_check(self, chunk, method, parameter):
         if method == "crc":
             crc_obj = CRC(parameter)
             value = crc_obj.calculate(chunk)
