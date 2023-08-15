@@ -36,12 +36,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.chunk_size = self.process_config['mtu']
 
         self.received_data_buffer_lock = threading.Lock()
-        self.buffer_not_full_condition = threading.Condition(
+        self.received_buffer_not_full_condition = threading.Condition(
             self.received_data_buffer_lock)
 
         self.sending_data_buffer_lock = threading.Lock()
         self.sending_data_buffer_condition = threading.Condition(
             self.sending_data_buffer_lock)
+        self.sending_buffer_not_full_condition = threading.Condition()
 
         self.send_lock = threading.Lock()
         self.urgent_send_condition = threading.Condition(
@@ -57,14 +58,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             while True:
                 seq_num += 1
                 seq_num %= (2*self.process_config['window_size'])
-                with self.buffer_not_full_condition:
+                with self.received_buffer_not_full_condition:
                     while self.received_data_buffer.is_full():
-                        self.buffer_not_full_condition.wait()  # Wait until there's space in the buffer
+                        # Wait until there's space in the buffer
+                        self.received_buffer_not_full_condition.wait()
 
                     chunk = f.read(self.chunk_size)
                     if not chunk:
                         break
                     self.received_data_buffer.add(chunk)
+
                     logging.info(pc.PrintColor.print_in_red_back(
                         f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
 
@@ -72,12 +75,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         seq_num = -1
         while True:
             chunk = None
-            with self.buffer_not_full_condition:
+            with self.received_buffer_not_full_condition:
                 if not self.received_data_buffer.is_empty():
                     chunk = self.received_data_buffer.get()
                     self.received_data_buffer.remove()
                     # Notify read_file_to_buffer that there's space now
-                    self.buffer_not_full_condition.notify()
+                    self.received_buffer_not_full_condition.notify()
 
             if chunk:
                 size_of_chunk = len(chunk)
@@ -94,11 +97,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                 size_of_chunk, 0, errors)
                 packet = Packet(header, chunk)
 
-                with self.sending_data_buffer_lock:
-                    self.sending_data_buffer.add(packet)
-                    logging.info(pc.PrintColor.print_in_green_back(
-                        f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
-                    self.sending_data_buffer_condition.notify()
+                with self.sending_buffer_not_full_condition:  # Use the condition for the sending buffer
+                    while self.sending_data_buffer.is_full():  # Wait if the sending buffer is full
+                        self.sending_buffer_not_full_condition.wait()
+
+                    with self.sending_data_buffer_lock:
+                        self.sending_data_buffer.add(packet)
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
+                        self.sending_data_buffer_condition.notify()
 
     def send_packet_from_buffer(self):
         last_sent_seq_num = -1  # Initialize to an invalid sequence number
@@ -121,7 +128,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def receive_ack(self):
         while True:
-            received_seq_num, _, _, _, received_size_of_chunk, _, received_ack_byte, _ = super(
+            received_seq_num, _, _, _, received_chunk_data, received_ack_byte, _, _ = super(
             ).receive_data(self.in_ack_socket)
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
@@ -136,6 +143,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Removed packet {received_seq_num} from sending buffer"))
                     # Notify send_packet_from_buffer that there might be space now
                     self.sending_data_buffer_condition.notify()
+                    self.sending_buffer_not_full_condition.notify()
 
                 elif received_ack_byte == 3:
                     packet = self.sending_data_buffer.get_by_sequence(
@@ -144,7 +152,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     self.urgent_send_condition.notify()
                     super().send_data(self.out_data_socket, packet)
                     logging.info(pc.PrintColor.print_in_white_back(
-                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {self.out_data_addr[0]}:{self.out_data_addr[1]}"))
+                        f"Re-sent packet {received_seq_num} of size {len(received_chunk_data)} to {self.out_data_addr[0]}:{self.out_data_addr[1]}"))
                     self.urgent_send_in_progress = False
                     self.urgent_send_condition.notify()
 

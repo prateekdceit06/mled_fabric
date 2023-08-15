@@ -1,27 +1,24 @@
 import threading
 
 
-class Packet:
-    def __init__(self, sequence_number, data):
-        self.sequence_number = sequence_number
-        self.data = data
-
-
 class CircularBuffer:
     def __init__(self, size):
         self.buffer = [None] * size
         self.head = 0
         self.tail = 0
+        self.count = 0  # Add a count variable to keep track of the number of elements
         self.lock = threading.Lock()
 
     def add(self, packet):
         with self.lock:
             self.buffer[self.tail] = packet
             self.tail = (self.tail + 1) % len(self.buffer)
+            self.count += 1
 
     def remove(self):
         with self.lock:
             self.head = (self.head + 1) % len(self.buffer)
+            self.count -= 1
 
     def get(self):
         with self.lock:
@@ -45,12 +42,13 @@ class CircularBuffer:
                         self.tail -= 1
                     if i < self.head:
                         self.head -= 1
+                    self.count -= 1
                     break
 
     def is_full(self):
         with self.lock:
-            return (self.tail + 1) % len(self.buffer) == self.head
+            return self.count == len(self.buffer)
 
     def is_empty(self):
         with self.lock:
-            return self.head == self.tail
+            return self.count == 0

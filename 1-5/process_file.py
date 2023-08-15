@@ -1,6 +1,8 @@
 # Process D
 
 from process import ProcessHandlerBase
+from send_receive import SendReceive
+
 import utils
 import time
 import threading
@@ -8,7 +10,7 @@ from circular_buffer import CircularBuffer
 
 
 
-class ProcessHandler(ProcessHandlerBase):
+class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def __init__(self, process_config, terminate_event):
         super().__init__(process_config, terminate_event)

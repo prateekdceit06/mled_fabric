@@ -1,6 +1,6 @@
 class Checksum:
     def __init__(self, checksum_length):
-        self.checksum_length = checksum_length
+        self.checksum_length = int(checksum_length)
 
     def calculate(self, input_data):
         sum_val = 0

@@ -1,6 +1,8 @@
 # Process E
 
 from process import ProcessHandlerBase
+from send_receive import SendReceive
+
 import utils
 import logging
 import threading
@@ -13,7 +15,7 @@ logging_format = utils.logging_format+" %(threadName)s"
 logging.basicConfig(format=logging_format, level=logging.INFO)
 
 
-class ProcessHandler(ProcessHandlerBase):
+class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def __init__(self, process_config, terminate_event):
         super().__init__(process_config, terminate_event)
