@@ -396,11 +396,17 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                 target=self.send_packet_from_buffer, name="SendDownThread")
             send_down_thread.start()
 
-            # receive_ack_down_thread = threading.Thread(args=(self.in_ack_socket_down, self.out_data_socket_down, self.out_data_addr_down,
-            #                                                  self.sending_data_down_buffer_condition, self.sending_data_down_buffer,
-            #                                                  self.sending_down_buffer_not_full_condition,),
-            #                                            target=self.receive_ack, name="ReceiveAckDownThread")
-            # receive_ack_down_thread.start()
+            receive_ack_down_thread = threading.Thread(args=(self.in_ack_socket_down, self.out_data_socket_down, self.out_data_addr_down,
+                                                             self.sending_data_up_buffer_condition, self.sending_data_up_buffer,
+                                                             self.sending_up_buffer_not_full_condition,),
+                                                       target=self.receive_ack, name="ReceiveAckDownThread")
+            receive_ack_down_thread.start()
+
+            receive_ack_up_thread = threading.Thread(args=(self.in_ack_socket_up, self.out_data_socket_up, self.out_data_addr_up,
+                                                           self.sending_data_down_buffer_condition, self.sending_data_down_buffer,
+                                                           self.sending_down_buffer_not_full_condition,),
+                                                     target=self.receive_ack, name="ReceiveAckUpThread")
+            receive_ack_up_thread.start()
 
             receive_down_data_thread.join
             prepare_up_thread.join()
@@ -408,3 +414,5 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             receive_up_data_thread.join()
             prepare_down_thread.join()
             send_down_thread.join()
+            receive_ack_down_thread.join()
+            receive_ack_up_thread.join()
