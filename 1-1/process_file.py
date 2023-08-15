@@ -10,7 +10,6 @@ from circular_buffer import CircularBuffer
 from header import Header
 from packet import Packet
 from utils import logging_format as logging_format
-import os
 import print_colour as pc
 
 import logging
@@ -30,7 +29,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.out_ack_addr = None
         self.socket_list = ['in_data_socket', 'in_ack_socket',
                             'out_data_socket', 'out_ack_socket']
-        self.buffer = CircularBuffer(self.process_config['window_size'])
         self.sending_data_buffer = CircularBuffer(
             self.process_config['window_size'])
         self.received_data_buffer = CircularBuffer(
@@ -51,11 +49,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.send_lock)
         self.urgent_send_in_progress = False
 
-    def receive_data(self):
+    def receive_data(self, in_socket):
         seq_num = -1
         while True:
             _, _, _, received_check_value_data, received_chunk_data, _, fixed_data, received_errors_data = super(
-            ).receive_data(self.in_data_socket)
+            ).receive_data(in_socket)
             data_to_forward = (fixed_data + received_check_value_data +
                                received_errors_data + received_chunk_data)
             logging.info(pc.PrintColor.print_in_black_back(
@@ -115,7 +113,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
                         self.sending_data_buffer_condition.notify()
 
-    def send_packet_from_buffer(self):
+    def send_packet_from_buffer(self, out_socket, out_addr):
         last_sent_seq_num = -1  # Initialize to an invalid sequence number
         while True:
             with self.sending_data_buffer_condition:
@@ -129,15 +127,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 if packet is None:
                     continue
                 with self.send_lock:
-                    super().send_data(self.out_data_socket, packet)
+                    super().send_data(out_socket, packet)
                     logging.info(pc.PrintColor.print_in_blue_back(
-                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data} to {self.out_data_addr[0]}:{self.out_data_addr[1]}"))
+                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data} to {out_addr[0]}:{out_addr[1]}"))
                     last_sent_seq_num = packet.seq_num
 
-    def receive_ack(self):
+    def receive_ack(self, in_socket, out_socket, out_addr):
         while True:
             received_seq_num, _, _, _, received_size_of_chunk, _, received_ack_byte, _ = super(
-            ).receive_data(self.in_ack_socket)
+            ).receive_data(in_socket)
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
                 f"Received {ack_string} for packet {received_seq_num}"))
@@ -158,9 +156,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         received_seq_num)
                     self.urgent_send_in_progress = True
                     self.urgent_send_condition.notify()
-                    super().send_data(self.out_data_socket, packet)
+                    super().send_data(out_socket, packet)
                     logging.info(pc.PrintColor.print_in_white_back(
-                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {self.out_data_addr[0]}:{self.out_data_addr[1]}"))
+                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
                     self.urgent_send_in_progress = False
                     self.urgent_send_condition.notify()
 
@@ -219,9 +217,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))
 
-        read_thread = threading.Thread(
-            target=self.receive_data, name="ReadThread")
-        read_thread.start()
+        receive_data_thread = threading.Thread(args=(self.in_data_socket,),
+                                               target=self.receive_data, name="ReceiveThread")
+        receive_data_thread.start()
 
         # Thread for prepare_packet_to_send
         prepare_thread = threading.Thread(
@@ -229,17 +227,17 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         prepare_thread.start()
 
         # Thread for send_packet_from_buffer
-        send_thread = threading.Thread(
-            target=self.send_packet_from_buffer, name="SendThread")
+        send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
+                                       target=self.send_packet_from_buffer, name="SendThread")
         send_thread.start()
 
         # Thread for receive_ack
-        receive_thread = threading.Thread(
-            target=self.receive_ack, name="ReceiveAckThread")
-        receive_thread.start()
+        receive_ack_thread = threading.Thread(args=(self.in_ack_socket, self.out_data_socket, self.out_data_addr,),
+                                              target=self.receive_ack, name="ReceiveAckThread")
+        receive_ack_thread.start()
 
         # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
-        read_thread.join()
+        receive_data_thread.join()
         prepare_thread.join()
         send_thread.join()
-        receive_thread.join()
+        receive_ack_thread.join()

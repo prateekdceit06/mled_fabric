@@ -9,8 +9,12 @@ import threading
 import time
 from circular_buffer import CircularBuffer
 
+from header import Header
+from packet import Packet
+from utils import logging_format as logging_format
+import print_colour as pc
 
-logging_format = utils.logging_format+" %(threadName)s"
+import logging
 
 logging.basicConfig(format=logging_format, level=logging.INFO)
 
@@ -42,7 +46,161 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             'in_ack_socket_up',
             'in_ack_socket_down'
         ]
-        self.buffer = CircularBuffer(self.process_config['window_size'])
+        self.chunk_size = self.process_config['mtu']
+
+        if self.process_config['parent'] is not None:
+            self.sending_data_up_buffer = CircularBuffer(
+                self.process_config['window_size'])
+            self.received_data_up_buffer = CircularBuffer(
+                self.process_config['window_size'])
+
+            self.received_data_up_buffer_lock = threading.Lock()
+            self.received_up_buffer_not_full_condition = threading.Condition(
+                self.received_data_up_buffer_lock)
+
+            self.sending_data_up_buffer_lock = threading.Lock()
+            self.sending_data_up_buffer_condition = threading.Condition(
+                self.sending_data_up_buffer_lock)
+            self.sending_up_buffer_not_full_condition = threading.Condition()
+
+        self.send_lock = threading.Lock()
+        self.urgent_send_condition = threading.Condition(
+            self.send_lock)
+        self.urgent_send_in_progress = False
+
+        self.sending_data_down_buffer = CircularBuffer(
+            self.process_config['window_size'])
+        self.received_data_down_buffer = CircularBuffer(
+            self.process_config['window_size'])
+
+        self.received_data_down_buffer_lock = threading.Lock()
+        self.received_down_buffer_not_full_condition = threading.Condition(
+            self.received_data_down_buffer_lock)
+
+        self.sending_data_down_buffer_lock = threading.Lock()
+        self.sending_data_down_buffer_condition = threading.Condition(
+            self.sending_data_down_buffer_lock)
+        self.sending_down_buffer_not_full_condition = threading.Condition()
+
+    def receive_data(self, in_socket, received_buffer_not_full_condition, received_data_buffer):
+        seq_num = -1
+        while True:
+            _, _, _, received_check_value_data, received_chunk_data, _, fixed_data, received_errors_data = super(
+            ).receive_data(in_socket)
+            data_to_forward = (fixed_data + received_check_value_data +
+                               received_errors_data + received_chunk_data)
+            logging.info(pc.PrintColor.print_in_black_back(
+                f"Received chunk of size {len(data_to_forward)}"))
+
+            # Split the chunk into smaller chunks
+            for i in range(0, len(data_to_forward), self.chunk_size):
+                chunk = data_to_forward[i:i+self.chunk_size]
+
+                seq_num += 1
+                seq_num %= (2*self.process_config['window_size'])
+
+                with received_buffer_not_full_condition:
+                    while received_data_buffer.is_full():
+                        # Wait until there's space in the buffer
+                        received_buffer_not_full_condition.wait()
+
+                    if not chunk:
+                        break
+                    received_data_buffer.add(chunk)
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
+
+    def prepare_packet_to_send(self, received_buffer_not_full_condition, received_data_buffer, sending_buffer_not_full_condition,
+                               sending_data_buffer, sending_data_buffer_lock, sending_data_buffer_condition):
+        seq_num = -1
+        while True:
+            chunk = None
+            with received_buffer_not_full_condition:
+                if not received_data_buffer.is_empty():
+                    chunk = received_data_buffer.get()
+                    received_data_buffer.remove()
+                    # Notify read_file_to_buffer that there's space now
+                    received_buffer_not_full_condition.notify()
+
+            if chunk:
+                size_of_chunk = len(chunk)
+                seq_num += 1
+                seq_num %= (2*self.process_config['window_size'])
+                src = self.process_config['name']
+                dest = self.process_config['right_neighbor']
+                error_detection_method = self.process_config['error_detection_method']['method']
+                parameter = self.process_config['error_detection_method']['parameter']
+                check_value = super().get_value_to_check(
+                    chunk, error_detection_method, parameter)
+                errors = []
+                header = Header(seq_num, src, dest, check_value,
+                                size_of_chunk, 0, errors)
+                packet = Packet(header, chunk)
+
+                with sending_buffer_not_full_condition:  # Use the condition for the sending buffer
+                    while sending_data_buffer.is_full():  # Wait if the sending buffer is full
+                        sending_buffer_not_full_condition.wait()
+
+                    with sending_data_buffer_lock:
+                        sending_data_buffer.add(packet)
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
+                        sending_data_buffer_condition.notify()
+
+    def send_packet_from_buffer(self, out_socket, out_addr, sending_data_buffer_condition, sending_data_buffer):
+        last_sent_seq_num = -1  # Initialize to an invalid sequence number
+        while True:
+            with sending_data_buffer_condition:
+                while self.urgent_send_in_progress or sending_data_buffer.is_empty():
+                    # Wait until there's a packet to send or an urgent send is needed
+                    sending_data_buffer_condition.wait()
+                seq_num_of_packet_to_send = (
+                    last_sent_seq_num + 1) % (2*self.process_config['window_size'])
+                packet = sending_data_buffer.get_by_sequence(
+                    seq_num_of_packet_to_send)
+                if packet is None:
+                    continue
+                with self.send_lock:
+                    super().send_data(out_socket, packet)
+                    logging.info(pc.PrintColor.print_in_blue_back(
+                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data} to {out_addr[0]}:{out_addr[1]}"))
+                    last_sent_seq_num = packet.seq_num
+
+    def receive_ack(self, in_socket, out_socket, out_addr,
+                    sending_data_buffer_condition, sending_data_buffer, sending_buffer_not_full_condition):
+        while True:
+            received_seq_num, _, _, _, received_size_of_chunk, _, received_ack_byte, _ = super(
+            ).receive_data(in_socket)
+            ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
+            logging.info(pc.PrintColor.print_in_purple_back(
+                f"Received {ack_string} for packet {received_seq_num}"))
+
+            with sending_data_buffer_condition:
+
+                if received_ack_byte == 1:
+                    sending_data_buffer.remove_by_sequence(
+                        received_seq_num)
+                    logging.info(pc.PrintColor.print_in_yellow_back(
+                        f"Removed packet {received_seq_num} from sending buffer"))
+                    # Notify send_packet_from_buffer that there might be space now
+                    sending_data_buffer_condition.notify()
+                    sending_buffer_not_full_condition.notify()
+
+                elif received_ack_byte == 3:
+                    packet = self.sending_data_buffer.get_by_sequence(
+                        received_seq_num)
+                    self.urgent_send_in_progress = True
+                    self.urgent_send_condition.notify()
+                    super().send_data(out_socket, packet)
+                    logging.info(pc.PrintColor.print_in_white_back(
+                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
+                    self.urgent_send_in_progress = False
+                    self.urgent_send_condition.notify()
+
+    def send_ack(self, in_socket, out_socket, out_addr):
+        while True:
+            _, _, _, received_check_value_data, received_chunk_data, _, fixed_data, received_errors_data = super(
+            ).receive_data(in_socket)
 
     def in_socket_up_handler(self, in_socket_up, retries, delay, up_host, up_port, socket_type):
         if socket_type == "data":
@@ -166,3 +324,87 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))
+
+        if self.process_config['parent'] is None:
+
+            receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.received_down_buffer_not_full_condition,
+                                                              self.received_data_down_buffer,),
+                                                        target=self.receive_data, name="ReceiveDownThread")
+            receive_down_data_thread.start()
+
+            # Thread for prepare_packet_to_send
+            prepare_down_thread = threading.Thread(args=(self.received_down_buffer_not_full_condition, self.received_data_down_buffer,
+                                                         self.sending_down_buffer_not_full_condition, self.sending_data_down_buffer,
+                                                         self.sending_data_down_buffer_lock, self.sending_data_down_buffer_condition,),
+                                                   target=self.prepare_packet_to_send, name="PrepareDownThread")
+            prepare_down_thread.start()
+
+            # Thread for send_packet_from_buffer
+            send_down_thread = threading.Thread(args=(self.out_data_socket_down, self.out_data_addr_down,
+                                                      self.sending_data_down_buffer_condition, self.sending_data_down_buffer,),
+                                                target=self.send_packet_from_buffer, name="SendDownThread")
+            send_down_thread.start()
+
+            # Thread for receive_ack
+            receive_ack_down_thread = threading.Thread(args=(self.in_ack_socket_down, self.out_data_socket_down, self.out_data_addr_down,
+                                                             self.sending_data_down_buffer_condition, self.sending_data_down_buffer,
+                                                             self.sending_down_buffer_not_full_condition,),
+                                                       target=self.receive_ack, name="ReceiveAckDownThread")
+            receive_ack_down_thread.start()
+
+            # send_ack_thread = threading.Thread(args=(self.out_ack_socket_down,),
+            #                                    target=self.receive_ack, name="SendAckThread")
+            # send_ack_thread.start()
+
+            receive_down_data_thread.join()
+            prepare_down_thread.join()
+            send_down_thread.join()
+            receive_ack_down_thread.join()
+            # send_ack_thread.join()
+
+        else:
+
+            receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.received_down_buffer_not_full_condition,
+                                                              self.received_data_down_buffer,),
+                                                        target=self.receive_data, name="ReceiveDownThread")
+            receive_down_data_thread.start()
+
+            prepare_up_thread = threading.Thread(args=(self.received_down_buffer_not_full_condition, self.received_data_down_buffer,
+                                                       self.sending_down_buffer_not_full_condition, self.sending_data_down_buffer,
+                                                       self.sending_data_down_buffer_lock, self.sending_data_down_buffer_condition,),
+                                                 target=self.prepare_packet_to_send, name="PrepareUpThread")
+            prepare_up_thread.start()
+
+            send_up_thread = threading.Thread(args=(self.out_data_socket_up, self.out_data_addr_up,
+                                                    self.sending_data_down_buffer_condition, self.sending_data_down_buffer,),
+                                              target=self.send_packet_from_buffer, name="SendUpThread")
+            send_up_thread.start()
+
+            receive_up_data_thread = threading.Thread(args=(self.in_data_socket_up, self.received_up_buffer_not_full_condition,
+                                                            self.received_data_up_buffer,),
+                                                      target=self.receive_data, name="ReceiveUpThread")
+            receive_up_data_thread.start()
+
+            prepare_down_thread = threading.Thread(args=(self.received_up_buffer_not_full_condition, self.received_data_up_buffer,
+                                                         self.sending_up_buffer_not_full_condition, self.sending_data_up_buffer,
+                                                         self.sending_data_up_buffer_lock, self.sending_data_up_buffer_condition,),
+                                                   target=self.prepare_packet_to_send, name="PrepareDownThread")
+            prepare_down_thread.start()
+
+            send_down_thread = threading.Thread(args=(self.out_data_socket_down, self.out_data_addr_down,
+                                                      self.sending_data_up_buffer_condition, self.sending_data_up_buffer,),
+                                                target=self.send_packet_from_buffer, name="SendDownThread")
+            send_down_thread.start()
+
+            # receive_ack_down_thread = threading.Thread(args=(self.in_ack_socket_down, self.out_data_socket_down, self.out_data_addr_down,
+            #                                                  self.sending_data_down_buffer_condition, self.sending_data_down_buffer,
+            #                                                  self.sending_down_buffer_not_full_condition,),
+            #                                            target=self.receive_ack, name="ReceiveAckDownThread")
+            # receive_ack_down_thread.start()
+
+            receive_down_data_thread.join
+            prepare_up_thread.join()
+            send_up_thread.join()
+            receive_up_data_thread.join()
+            prepare_down_thread.join()
+            send_down_thread.join()
