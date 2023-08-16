@@ -4,8 +4,6 @@ import socket
 import time
 import print_colour
 
-
-
 logging.basicConfig(format=utils.logging_format, level=logging.INFO)
 
 
@@ -28,6 +26,7 @@ class ProcessHandlerBase:
                     out_socket, addr = out_server_socket.accept()
                     host_relation = self.get_host_relation(addr[0])
                     if host_relation == "no_relation":
+                        out_socket.close()
                         continue
                     else:
                         break
@@ -128,7 +127,3 @@ class ProcessHandlerBase:
 
     def are_sockets_alive(self, socket_names):
         return all(map(self.is_socket_connected, socket_names))
-
-
-
-

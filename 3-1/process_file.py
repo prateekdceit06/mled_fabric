@@ -70,6 +70,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
                     logging.info(pc.PrintColor.print_in_red_back(
                         f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
+                    logging.info(f"CHUNK: {chunk}")
 
     def prepare_packet_to_send(self):
         seq_num = -1
@@ -93,8 +94,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 check_value = super().get_value_to_check(
                     chunk, error_detection_method, parameter)
                 errors = []
+                if size_of_chunk < self.chunk_size:
+                    last_packet = True
+                else:
+                    last_packet = False
                 header = Header(seq_num, src, dest, check_value,
-                                size_of_chunk, 0, errors)
+                                size_of_chunk, 0, errors, last_packet)
                 packet = Packet(header, chunk)
 
                 with self.sending_buffer_not_full_condition:  # Use the condition for the sending buffer
@@ -123,12 +128,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 with self.send_lock:
                     super().send_data(out_socket, packet)
                     logging.info(pc.PrintColor.print_in_blue_back(
-                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data} to {out_addr[0]}:{out_addr[1]}"))
+                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} (Data: {packet.header.size_of_data} Header: {packet.header.get_size()}) to {out_addr[0]}:{out_addr[1]}"))
+                    logging.info(packet)
                     last_sent_seq_num = packet.seq_num
 
     def receive_ack(self, in_socket, out_socket, out_addr):
         while True:
-            received_seq_num, _, _, _, received_chunk_data, received_ack_byte, _, _ = super(
+            received_seq_num, _, _, _, received_chunk_data, received_ack_byte, _, _, _ = super(
             ).receive_data(in_socket)
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
@@ -198,6 +204,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))
 
+        time.sleep(30)
         read_thread = threading.Thread(
             target=self.read_file_to_buffer, name="ReadThread")
         read_thread.start()

@@ -26,6 +26,7 @@ class ProcessHandlerBase:
                     out_socket, addr = out_server_socket.accept()
                     host_relation = self.get_host_relation(addr[0])
                     if host_relation == "no_relation":
+                        out_socket.close()
                         continue
                     else:
                         break

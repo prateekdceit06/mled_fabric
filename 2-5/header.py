@@ -1,10 +1,10 @@
 import struct
 
-fixed_format = "i 3s 3s i i B i"
+fixed_format = "i 3s 3s i i B i ?"
 
 
 class Header:
-    def __init__(self, seq_num, src, dest, check_value, size_of_data, ack_byte, errors):
+    def __init__(self, seq_num, src, dest, check_value, size_of_data, ack_byte, errors, last_packet):
 
         self.seq_num = seq_num
         self.src = src
@@ -15,6 +15,7 @@ class Header:
         self.ack_byte = ack_byte
         self.size_of_errors = len(errors)
         self.errors = errors
+        self.last_packet = last_packet
 
     def __str__(self):
         return (f"Header(\n"
@@ -31,5 +32,11 @@ class Header:
 
     def pack(self):
         packed_header = struct.pack(fixed_format, self.seq_num, self.src.encode(), self.dest.encode(
-        ), self.size_of_check_value, self.size_of_data, self.ack_byte, self.size_of_errors)
+        ), self.size_of_check_value, self.size_of_data, self.ack_byte, self.size_of_errors, self.last_packet)
         return packed_header
+    
+    def get_size(self):
+        fixed_size = struct.calcsize(fixed_format)
+        check_value_size = len(self.check_value.encode())
+        errors_size = struct.calcsize(f"{self.size_of_errors}i")
+        return fixed_size + check_value_size + errors_size

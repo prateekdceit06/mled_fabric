@@ -12,3 +12,6 @@ class Packet:
 
     def __str__(self):
         return f"Packet({self.seq_num}, {self.header}, {self.chunk})"
+    
+    def get_size(self):
+        return len(self.chunk) + self.header.get_size()

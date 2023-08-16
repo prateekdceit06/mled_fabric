@@ -1,10 +1,10 @@
 import struct
 
-fixed_format = "i 3s 3s i i B i"
+fixed_format = "i 3s 3s i i B i ?"
 
 
 class Header:
-    def __init__(self, seq_num, src, dest, check_value, size_of_data, ack_byte, errors):
+    def __init__(self, seq_num, src, dest, check_value, size_of_data, ack_byte, errors, last_packet):
 
         self.seq_num = seq_num
         self.src = src
@@ -15,6 +15,7 @@ class Header:
         self.ack_byte = ack_byte
         self.size_of_errors = len(errors)
         self.errors = errors
+        self.last_packet = last_packet
 
     def __str__(self):
         return (f"Header(\n"
@@ -31,5 +32,5 @@ class Header:
 
     def pack(self):
         packed_header = struct.pack(fixed_format, self.seq_num, self.src.encode(), self.dest.encode(
-        ), self.size_of_check_value, self.size_of_data, self.ack_byte, self.size_of_errors)
+        ), self.size_of_check_value, self.size_of_data, self.ack_byte, self.size_of_errors, self.last_packet)
         return packed_header
