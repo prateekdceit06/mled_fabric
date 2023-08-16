@@ -34,3 +34,23 @@ class Header:
         packed_header = struct.pack(fixed_format, self.seq_num, self.src.encode(), self.dest.encode(
         ), self.size_of_check_value, self.size_of_data, self.ack_byte, self.size_of_errors, self.last_packet)
         return packed_header
+
+    def unpack(packed_header):
+        unpacked_data = struct.unpack(fixed_format, packed_header)
+        seq_num = unpacked_data[0]
+        src = unpacked_data[1].decode().strip('\x00')
+        dest = unpacked_data[2].decode().strip('\x00')
+        size_of_check_value = unpacked_data[3]
+        size_of_data = unpacked_data[4]
+        ack_byte = unpacked_data[5]
+        size_of_errors = unpacked_data[6]
+        last_packet = unpacked_data[7]
+        header = Header(seq_num, src, dest, b'\x00' * size_of_check_value,
+                        size_of_data, ack_byte, [], last_packet)
+        return header
+
+    def get_size(self):
+        fixed_size = struct.calcsize(fixed_format)
+        check_value_size = len(self.check_value.encode())
+        errors_size = struct.calcsize(f"{self.size_of_errors}i")
+        return fixed_size + check_value_size + errors_size

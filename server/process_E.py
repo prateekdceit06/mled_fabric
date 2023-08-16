@@ -90,27 +90,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data, received_last_packet = super(
                 ).receive_data(in_socket)
                 if received_dest.decode() == self.process_config['name']:
-                    # check value
-                    # send ack
-                    # add to buffer
-                    logging.info(
-                        f"dest {received_dest.decode()} == name {self.process_config['name']}")
 
                     data_to_forward += received_chunk_data
                     if len(data_to_forward) >= self.chunk_size or received_last_packet:
                         break
                 elif received_dest.decode() is not self.process_config['name'] and received_src.decode() == self.process_config['child']:
-                    # send ack
-                    # add to buffer
-                    logging.info(
-                        f"dest {received_dest.decode()} != name {self.process_config['name']} and src {received_src.decode()} == child {self.process_config['child']}")
                     data_to_forward += received_chunk_data
                     if received_last_packet:
                         break
                 else:
-                    logging.info(
-                        f"dest {received_dest.decode()} != name {self.process_config['name']}")
-
                     data_to_forward += (fixed_data + received_check_value_data +
                                         received_errors_data + received_chunk_data)
 
@@ -119,8 +107,18 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             if received_dest.decode() is not self.process_config['name'] and received_src.decode() == self.process_config['child']:
                 inner_packet = super().decapsulate(data_to_forward)
                 data_to_forward = inner_packet.chunk
-            logging.info(
-                f"Data to Forward ({len(data_to_forward)}): {data_to_forward}")
+                received_check_value_data = inner_packet.header.check_value.encode()
+
+            if received_src.decode() != self.process_config['parent']:
+                no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
+                                                     self.process_config['error_detection_method']['method'],
+                                                     self.process_config['error_detection_method']['parameter'])
+                if no_corruption:
+                    logging.info(pc.PrintColor.print_in_green_back(
+                        "Positive ACK for seq_num: "))
+                else:
+                    logging.info(
+                        pc.PrintColor.print_in_red_back("Negative ACK"))
 
             logging.info(pc.PrintColor.print_in_black_back(
                 f"Received chunk of size {len(data_to_forward)}"))
@@ -242,27 +240,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     self.urgent_send_in_progress = False
                     self.urgent_send_condition.notify()
 
-    # def send_ack(self, in_socket, out_socket, out_addr, received_buffer_not_full_condition, received_data_buffer):
-    #     while True:
-    #         chunk = None
-    #         with received_buffer_not_full_condition:
-    #             if not received_data_buffer.is_empty():
-    #                 chunk = received_data_buffer.get()
-    #                 # received_data_buffer.remove()
-    #                 # Notify read_file_to_buffer that there's space now
-    #                 # received_buffer_not_full_condition.notify()
-    #         with receiving_data_buffer_condition:
-    #             seq_num_of_packet_to_send = (
-    #                 last_sent_seq_num + 1) % (2*self.process_config['window_size'])
-    #             packet = sending_data_buffer.get_by_sequence(
-    #                 seq_num_of_packet_to_send)
-    #             if packet is None:
-    #                 continue
-    #             with self.send_lock:
-    #                 super().send_data(out_socket, packet)
-    #                 logging.info(pc.PrintColor.print_in_blue_back(
-    #                     f"Sent packet {packet.seq_num} of size {packet.header.size_of_data} to {out_addr[0]}:{out_addr[1]}"))
-    #                 last_sent_seq_num = packet.seq_num
+    def send_ack(self, in_socket, out_socket, out_addr):
+        pass
 
     def in_socket_up_handler(self, in_socket_up, retries, delay, up_host, up_port, socket_type):
         if socket_type == "data":

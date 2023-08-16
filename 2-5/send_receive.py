@@ -23,7 +23,7 @@ class SendReceive:
             value = crc_obj.verify(chunk, value_to_compare)
         elif method == "checksum":
             checksum_obj = Checksum(parameter)
-            value = checksum_obj.calculate(chunk, value_to_compare)
+            value = checksum_obj.verify(chunk, value_to_compare)
         return value
 
     def send_data(self, sending_socket, packet):
