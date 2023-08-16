@@ -37,10 +37,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
 
     client_ip = '10.0.0.100'
+    server_ip = '10.0.0.100'
     path = os.path.abspath(__file__)
     directory = os.path.dirname(path)
 
-    config_handler = ConfigClient('10.0.0.100', 50000, client_ip, 0, directory)
+    config_handler = ConfigClient(server_ip, 50000, client_ip, 0, directory)
 
     results = {}
 
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     create_routes_thread.start()
 
     create_out_socket_thread = threading.Thread(target=process_create_out_socket, name='CreateOutSocketThread',
-                                                args=(process_handler, connections, timeout, client_ip))
+                                                args=(process_handler, connections, timeout, client_ip,))
     create_out_socket_thread.daemon = True
     create_out_socket_thread.start()
 

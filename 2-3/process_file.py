@@ -82,7 +82,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.sending_data_down_buffer_lock)
         self.sending_down_buffer_not_full_condition = threading.Condition()
 
-    def receive_data(self, in_socket, received_buffer_not_full_condition, received_data_buffer):
+    def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         seq_num = -1
         while True:
             data_to_forward = b''
@@ -108,6 +108,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 inner_packet = super().decapsulate(data_to_forward)
                 data_to_forward = inner_packet.chunk
                 received_check_value_data = inner_packet.header.check_value.encode()
+                received_seq_num = inner_packet.header.seq_num
+                received_src = inner_packet.header.src.encode()
+                received_dest = inner_packet.header.dest.encode()
 
             if received_src.decode() != self.process_config['parent']:
                 no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
@@ -115,7 +118,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                      self.process_config['error_detection_method']['parameter'])
                 if no_corruption:
                     logging.info(pc.PrintColor.print_in_green_back(
-                        "Positive ACK for seq_num: "))
+                        f"Positive ACK for seq_num: {received_seq_num}"))
+                    # ack_header = Header(
+                    #     received_seq_num, received_dest.decode(), received_src.decode(), "", 3, 1, [], True)
+                    # ack_packet = Packet(ack_header, b'ack')
+                    # super().send_data(out_ack_socket, ack_packet)
+
                 else:
                     logging.info(
                         pc.PrintColor.print_in_red_back("Negative ACK"))
@@ -212,12 +220,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
     def receive_ack(self, in_socket, out_socket, out_addr,
                     sending_data_buffer_condition, sending_data_buffer, sending_buffer_not_full_condition):
         while True:
-            received_seq_num, _, _, _, received_size_of_chunk, _, received_ack_byte, _, _ = super(
+            received_seq_num, received_src, _, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
             ).receive_data(in_socket)
+
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
                 f"Received {ack_string} for packet {received_seq_num}"))
-
+            # if received_src.decode() == self.process_config['name']:
             with sending_data_buffer_condition:
 
                 if received_ack_byte == 1:
@@ -227,7 +236,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Removed packet {received_seq_num} from sending buffer"))
                     # Notify send_packet_from_buffer that there might be space now
                     sending_data_buffer_condition.notify()
-                    sending_buffer_not_full_condition.notify()
+                    with sending_buffer_not_full_condition:
+                        sending_buffer_not_full_condition.notify_all()
 
                 elif received_ack_byte == 3:
                     packet = self.sending_data_buffer.get_by_sequence(
@@ -239,6 +249,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
                     self.urgent_send_in_progress = False
                     self.urgent_send_condition.notify()
+            # else:
+            #     pass
 
     def send_ack(self, in_socket, out_socket, out_addr):
         pass
@@ -368,7 +380,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         if self.process_config['parent'] is None:
 
-            receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.received_down_buffer_not_full_condition,
+            receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.out_ack_socket_down,
+                                                              self.received_down_buffer_not_full_condition,
                                                               self.received_data_down_buffer,),
                                                         target=self.receive_data, name="ReceiveDownThread")
             receive_down_data_thread.start()
@@ -405,7 +418,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         else:
 
-            receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.received_down_buffer_not_full_condition,
+            receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.out_ack_socket_down,
+                                                              self.received_down_buffer_not_full_condition,
                                                               self.received_data_down_buffer,),
                                                         target=self.receive_data, name="ReceiveDownThread")
             receive_down_data_thread.start()
@@ -421,7 +435,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                               target=self.send_packet_from_buffer, name="SendUpThread")
             send_up_thread.start()
 
-            receive_up_data_thread = threading.Thread(args=(self.in_data_socket_up, self.received_up_buffer_not_full_condition,
+            receive_up_data_thread = threading.Thread(args=(self.in_data_socket_up, self.out_ack_socket_up,
+                                                            self.received_up_buffer_not_full_condition,
                                                             self.received_data_up_buffer,),
                                                       target=self.receive_data, name="ReceiveUpThread")
             receive_up_data_thread.start()
@@ -457,88 +472,3 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             send_down_thread.join()
             receive_ack_down_thread.join()
             receive_ack_up_thread.join()
-
-    # def receive_data(self, in_socket, received_buffer_not_full_condition, received_data_buffer, out_socket):
-    #     seq_num = -1
-    #     while True:
-    #         chunk = None
-    #         received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data = super(
-    #         ).receive_data(in_socket)
-    #         data_to_forward = (fixed_data + received_check_value_data +
-    #                            received_errors_data + received_chunk_data)
-    #         logging.info(pc.PrintColor.print_in_black_back(
-    #             f"Received chunk of size {len(data_to_forward)}"))
-    #         if received_dest == self.process_config['name']:
-    #             received_check_value = received_check_value_data.decode(
-    #                 'utf-8')
-    #             received_chunk = received_chunk_data.decode('utf-8')
-
-    #             error_detection_method = self.process_config['error_detection_method']['method']
-    #             parameter = self.process_config['error_detection_method']['parameter']
-    #             correct = super().verify_value(
-    #                 received_chunk, received_check_value, error_detection_method, parameter)
-
-    #             if correct:
-
-    #                 size_of_chunk = 0
-    #                 seq_num = received_seq_num
-    #                 src = self.process_config['name']
-    #                 dest = self.process_config['left_neighbor']
-
-    #                 check_value = ""
-    #                 errors = []
-    #                 header = Header(seq_num, src, dest, check_value,
-    #                                 size_of_chunk, 1, errors)
-    #                 packet = Packet(header, received_chunk)
-
-    #                 self.send_ack(out_socket, packet)
-
-    #                 for i in range(0, len(received_chunk), self.chunk_size):
-    #                     chunk = received_chunk[i:i+self.chunk_size]
-
-    #                     seq_num += 1
-    #                     seq_num %= (2*self.process_config['window_size'])
-
-    #                     with received_buffer_not_full_condition:
-    #                         while received_data_buffer.is_full():
-    #                             # Wait until there's space in the buffer
-    #                             received_buffer_not_full_condition.wait()
-
-    #                         if not chunk:
-    #                             break
-    #                         received_data_buffer.add(chunk)
-    #                         logging.info(pc.PrintColor.print_in_red_back(
-    #                             f"Wrote chunk {seq_num} of size {len(chunk)} to buffer"))
-
-    #             else:
-    #                 size_of_chunk = 0
-    #                 seq_num = received_seq_num
-    #                 src = self.process_config['name']
-    #                 dest = self.process_config['left_neighbor']
-
-    #                 check_value = ""
-    #                 errors = []
-    #                 header = Header(seq_num, src, dest, check_value,
-    #                                 size_of_chunk, 3, errors)
-    #                 packet = Packet(header, received_chunk)
-
-    #                 self.send_ack(out_socket, packet)
-    #         else:
-
-    #             # Split the chunk into smaller chunks
-    #             for i in range(0, len(data_to_forward), self.chunk_size):
-    #                 chunk = data_to_forward[i:i+self.chunk_size]
-
-    #                 seq_num += 1
-    #                 seq_num %= (2*self.process_config['window_size'])
-
-    #                 with received_buffer_not_full_condition:
-    #                     while received_data_buffer.is_full():
-    #                         # Wait until there's space in the buffer
-    #                         received_buffer_not_full_condition.wait()
-
-    #                     if not chunk:
-    #                         break
-    #                     received_data_buffer.add(chunk)
-    #                     logging.info(pc.PrintColor.print_in_red_back(
-    #                         f"Wrote chunk {seq_num} of size {len(chunk)} to buffer"))

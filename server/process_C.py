@@ -78,7 +78,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
                     logging.info(f"CHUNK: {chunk}")
 
-
     def prepare_packet_to_send(self):
         seq_num = -1
         while True:
@@ -142,33 +141,37 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def receive_ack(self, in_socket, out_socket, out_addr):
         while True:
-            received_seq_num, _, _, _, received_size_of_chunk, _, received_ack_byte, _, _ = super(
+            received_seq_num, received_src, _, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
             ).receive_data(in_socket)
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
                 f"Received {ack_string} for packet {received_seq_num}"))
+            if received_src.decode() == self.process_config['name']:
 
-            with self.sending_data_buffer_condition:
+                with self.sending_data_buffer_condition:
 
-                if received_ack_byte == 1:
-                    self.sending_data_buffer.remove_by_sequence(
-                        received_seq_num)
-                    logging.info(pc.PrintColor.print_in_yellow_back(
-                        f"Removed packet {received_seq_num} from sending buffer"))
-                    # Notify send_packet_from_buffer that there might be space now
-                    self.sending_data_buffer_condition.notify()
-                    self.sending_buffer_not_full_condition.notify()
+                    if received_ack_byte == 1:
+                        self.sending_data_buffer.remove_by_sequence(
+                            received_seq_num)
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"Removed packet {received_seq_num} from sending buffer"))
+                        # Notify send_packet_from_buffer that there might be space now
+                        self.sending_data_buffer_condition.notify()
+                        with self.sending_buffer_not_full_condition:
+                            self.sending_buffer_not_full_condition.notify()
 
-                elif received_ack_byte == 3:
-                    packet = self.sending_data_buffer.get_by_sequence(
-                        received_seq_num)
-                    self.urgent_send_in_progress = True
-                    self.urgent_send_condition.notify()
-                    super().send_data(out_socket, packet)
-                    logging.info(pc.PrintColor.print_in_white_back(
-                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
-                    self.urgent_send_in_progress = False
-                    self.urgent_send_condition.notify()
+                    elif received_ack_byte == 3:
+                        packet = self.sending_data_buffer.get_by_sequence(
+                            received_seq_num)
+                        self.urgent_send_in_progress = True
+                        self.urgent_send_condition.notify()
+                        super().send_data(out_socket, packet)
+                        logging.info(pc.PrintColor.print_in_white_back(
+                            f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
+                        self.urgent_send_in_progress = False
+                        self.urgent_send_condition.notify()
+            else:
+                pass
 
     def create_data_route(self, retries, delay):
         in_data_socket = utils.create_client_socket(
@@ -184,7 +187,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def create_ack_route(self, retries, delay):
         in_ack_socket = utils.create_client_socket(
-            self.process_config['ip'], self.process_config['ack_port'])
+            self.process_config['ip'], 0)
         host, port = self.find_ack_host_port()
         in_ack_socket_generator = super().connect_in_socket(
             in_ack_socket, retries, delay, host, port, "ack")

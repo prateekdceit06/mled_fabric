@@ -22,14 +22,8 @@ class ProcessHandlerBase:
 
         while not self.terminate_event.is_set():
             try:
-                while True:
-                    out_socket, addr = out_server_socket.accept()
-                    host_relation = self.get_host_relation(addr[0])
-                    if host_relation == "no_relation":
-                        out_socket.close()
-                        continue
-                    else:
-                        break
+                out_socket, addr = out_server_socket.accept()
+                host_relation = self.get_host_relation(addr[0])
                 host_relation_name = self.process_config[host_relation]
                 if socket_type == "data":
                     logging.info(print_colour
@@ -92,14 +86,8 @@ class ProcessHandlerBase:
         pass
 
     def get_host_relation(self, host):
-        logging.info(f"Host:  {host}")
         host_relation_ip = utils.get_key_for_value(self.process_config, host)
-        logging.info(f"Host Relation IP:  {host_relation_ip}")
-        if host_relation_ip:
-            host_relation = host_relation_ip[0].rsplit("_", 1)[0]
-        else:
-            host_relation = "no_relation"
-        logging.info(f"Host Relation :  {host_relation}")
+        host_relation = host_relation_ip[0].rsplit("_", 1)[0]
         return host_relation
 
     def create_out_data_socket(self, connections, timeout, ip, port):

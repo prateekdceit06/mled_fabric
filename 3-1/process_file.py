@@ -134,33 +134,38 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def receive_ack(self, in_socket, out_socket, out_addr):
         while True:
-            received_seq_num, _, _, _, received_chunk_data, received_ack_byte, _, _, _ = super(
+            received_seq_num, received_src, _, _, received_chunk_data, received_ack_byte, _, _, _ = super(
             ).receive_data(in_socket)
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
                 f"Received {ack_string} for packet {received_seq_num}"))
 
-            with self.sending_data_buffer_condition:
+            if received_src.decode() == self.process_config['name']:
 
-                if received_ack_byte == 1:
-                    self.sending_data_buffer.remove_by_sequence(
-                        received_seq_num)
-                    logging.info(pc.PrintColor.print_in_yellow_back(
-                        f"Removed packet {received_seq_num} from sending buffer"))
-                    # Notify send_packet_from_buffer that there might be space now
-                    self.sending_data_buffer_condition.notify()
-                    self.sending_buffer_not_full_condition.notify()
+                with self.sending_data_buffer_condition:
 
-                elif received_ack_byte == 3:
-                    packet = self.sending_data_buffer.get_by_sequence(
-                        received_seq_num)
-                    self.urgent_send_in_progress = True
-                    self.urgent_send_condition.notify()
-                    super().send_data(out_socket, packet)
-                    logging.info(pc.PrintColor.print_in_white_back(
-                        f"Re-sent packet {received_seq_num} of size {len(received_chunk_data)} to {out_addr[0]}:{out_addr[1]}"))
-                    self.urgent_send_in_progress = False
-                    self.urgent_send_condition.notify()
+                    if received_ack_byte == 1:
+                        self.sending_data_buffer.remove_by_sequence(
+                            received_seq_num)
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"Removed packet {received_seq_num} from sending buffer"))
+                        # Notify send_packet_from_buffer that there might be space now
+                        self.sending_data_buffer_condition.notify()
+                        with self.sending_buffer_not_full_condition:
+                            self.sending_buffer_not_full_condition.notify()
+
+                    elif received_ack_byte == 3:
+                        packet = self.sending_data_buffer.get_by_sequence(
+                            received_seq_num)
+                        self.urgent_send_in_progress = True
+                        self.urgent_send_condition.notify()
+                        super().send_data(out_socket, packet)
+                        logging.info(pc.PrintColor.print_in_white_back(
+                            f"Re-sent packet {received_seq_num} of size {len(received_chunk_data)} to {out_addr[0]}:{out_addr[1]}"))
+                        self.urgent_send_in_progress = False
+                        self.urgent_send_condition.notify()
+            else:
+                pass
 
     def create_out_data_socket(self, connections, timeout, ip):
         if self.process_config['data_port'] is not None:
@@ -204,7 +209,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))
 
-        time.sleep(30)
         read_thread = threading.Thread(
             target=self.read_file_to_buffer, name="ReadThread")
         read_thread.start()

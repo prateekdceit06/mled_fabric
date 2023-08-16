@@ -52,3 +52,12 @@ class CircularBuffer:
     def is_empty(self):
         with self.lock:
             return self.count == 0
+
+    def print_buffer(self):
+        with self.lock:
+            for i in range(len(self.buffer)):
+                packet = self.buffer[i]
+                if packet:
+                    print(f"<{i}>: <{packet.seq_num}>")
+                else:
+                    print(f"<{i}>: <None>")
