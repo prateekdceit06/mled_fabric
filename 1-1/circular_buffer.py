@@ -38,12 +38,14 @@ class CircularBuffer:
                 if packet and packet.seq_num == sequence_number:
                     # Remove the packet and shift elements
                     self.buffer = self.buffer[:i] + self.buffer[i+1:] + [None]
-                    if i < self.tail:
-                        self.tail -= 1
+                    if i == self.tail:
+                        self.tail = (self.tail - 1) % len(self.buffer)
+
                     if i < self.head:
                         self.head -= 1
                     self.count -= 1
                     break
+            return packet
 
     def is_full(self):
         with self.lock:
@@ -54,10 +56,12 @@ class CircularBuffer:
             return self.count == 0
 
     def print_buffer(self):
+        buffer_str = ""
         with self.lock:
             for i in range(len(self.buffer)):
                 packet = self.buffer[i]
                 if packet:
-                    print(f"<{i}>: <{packet.seq_num}>")
+                    buffer_str += f" <Position {i}>: <Seq Num {packet.seq_num}> "
                 else:
-                    print(f"<{i}>: <None>")
+                    buffer_str += f"<Position {i}>: <None> "
+        return buffer_str

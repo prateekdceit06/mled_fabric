@@ -13,7 +13,6 @@ from header import Header
 from packet import Packet
 from utils import logging_format as logging_format
 import print_colour as pc
-import struct
 import logging
 
 logging.basicConfig(format=logging_format, level=logging.INFO)
@@ -84,71 +83,113 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         seq_num = -1
+
         while True:
-            data_to_forward = b''
-            while True:
-                received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data, received_last_packet = super(
-                ).receive_data(in_socket)
-                if received_dest.decode() == self.process_config['name']:
-
-                    data_to_forward += received_chunk_data
-                    if len(data_to_forward) >= self.chunk_size or received_last_packet:
-                        break
-                elif received_dest.decode() is not self.process_config['name'] and received_src.decode() == self.process_config['child']:
-                    data_to_forward += received_chunk_data
-                    if received_last_packet:
-                        break
-                else:
-                    data_to_forward += (fixed_data + received_check_value_data +
-                                        received_errors_data + received_chunk_data)
-
-                    if len(data_to_forward) >= self.chunk_size or received_last_packet:
-                        break
-            if received_dest.decode() is not self.process_config['name'] and received_src.decode() == self.process_config['child']:
-                inner_packet = super().decapsulate(data_to_forward)
-                data_to_forward = inner_packet.chunk
-                received_check_value_data = inner_packet.header.check_value.encode()
-                received_seq_num = inner_packet.header.seq_num
-                received_src = inner_packet.header.src.encode()
-                received_dest = inner_packet.header.dest.encode()
-
-            if received_src.decode() != self.process_config['parent']:
-                no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
-                                                     self.process_config['error_detection_method']['method'],
-                                                     self.process_config['error_detection_method']['parameter'])
-                if no_corruption:
-                    logging.info(pc.PrintColor.print_in_green_back(
-                        f"Positive ACK for seq_num: {received_seq_num}"))
-                    # ack_header = Header(
-                    #     received_seq_num, received_dest.decode(), received_src.decode(), "", 3, 1, [], True)
-                    # ack_packet = Packet(ack_header, b'ack')
-                    # super().send_data(out_ack_socket, ack_packet)
-
-                else:
-                    logging.info(
-                        pc.PrintColor.print_in_red_back("Negative ACK"))
-
+            data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data = self.receive_packets(
+                in_socket)
             logging.info(pc.PrintColor.print_in_black_back(
                 f"Received chunk of size {len(data_to_forward)}"))
 
-            # Split the chunk into smaller chunks
-            for i in range(0, len(data_to_forward), self.chunk_size):
-                chunk = data_to_forward[i:i+self.chunk_size]
+            if received_src.decode() != self.process_config['parent']:
+                if self.process_config['child'] is not None:
+                    self.handle_non_parent_data(data_to_forward, packet_to_ack, received_src, received_dest,
+                                                received_seq_num, received_buffer_not_full_condition, received_data_buffer)
+                else:
+                    self.handle_no_child(data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num,
+                                         received_buffer_not_full_condition, received_data_buffer, received_check_value_data)
+            else:
+                self.add_to_buffer(
+                    data_to_forward, received_buffer_not_full_condition, received_data_buffer, received_seq_num)
 
-                seq_num += 1
-                seq_num %= (2*self.process_config['window_size'])
+    def receive_packets(self, in_socket):
+        data_to_forward = b''
+        packet_to_ack = []
+        while True:
+            received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data, received_last_packet = super().receive_data(in_socket)
+            packet_to_ack.append(received_seq_num)
 
-                with received_buffer_not_full_condition:
-                    while received_data_buffer.is_full():
-                        # Wait until there's space in the buffer
-                        received_buffer_not_full_condition.wait()
+            if received_src.decode() == self.process_config['parent']:
+                data_to_forward += (fixed_data + received_check_value_data +
+                                    received_errors_data + received_chunk_data)
+                if len(data_to_forward) >= self.chunk_size or received_last_packet:
+                    break
+            elif received_src.decode() == self.process_config['left_neighbor']:
+                data_to_forward += received_chunk_data
+                if len(data_to_forward) >= self.chunk_size or received_last_packet:
+                    break
+            else:
+                data_to_forward += received_chunk_data
+                if received_last_packet:
+                    break
 
-                    if not chunk:
-                        break
-                    received_data_buffer.add(chunk)
-                    logging.info(pc.PrintColor.print_in_red_back(
-                        f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
-                    logging.info(f"CHUNK: {chunk}")
+        return data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data
+
+    def handle_non_parent_data(self, data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_buffer_not_full_condition, received_data_buffer):
+        inner_packet = super().decapsulate(data_to_forward)
+        data_to_forward = inner_packet.chunk
+        received_check_value_data = inner_packet.header.check_value.encode()
+        received_seq_num = inner_packet.header.seq_num
+        received_src_inner = inner_packet.header.src.encode()
+        received_dest_inner = inner_packet.header.dest.encode()
+
+        no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
+                                             self.process_config['error_detection_method']['method'],
+                                             self.process_config['error_detection_method']['parameter'])
+
+        if no_corruption:
+            logging.info(pc.PrintColor.print_in_yellow_back(
+                f"Positive ACK for seq_num: {received_seq_num} to {received_src_inner} from {received_dest_inner}"))
+            for seq_n in packet_to_ack:
+                logging.info(pc.PrintColor.print_in_yellow_back(
+                    f"Positive ACK for seq_num: {seq_n} to {(self.process_config['child']).encode()} from {(self.process_config['name']).encode()}"))
+
+            self.add_to_buffer(
+                data_to_forward, received_buffer_not_full_condition, received_data_buffer, received_seq_num)
+        else:
+            for seq_num in packet_to_ack:
+                logging.info(pc.PrintColor.print_in_yellow_back(
+                    f"Negative ACK for seq_num: {seq_num}"))
+
+    def handle_no_child(self, data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_buffer_not_full_condition, received_data_buffer, received_check_value_data):
+        no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
+                                             self.process_config['error_detection_method']['method'],
+                                             self.process_config['error_detection_method']['parameter'])
+        if no_corruption:
+
+            if received_src.decode() != self.process_config['child']:
+                for seq_n in packet_to_ack:
+                    logging.info(pc.PrintColor.print_in_yellow_back(
+                        f"Positive ACK for seq_num: {seq_n} to {received_src} from {received_dest}"))
+
+            self.add_to_buffer(
+                data_to_forward, received_buffer_not_full_condition, received_data_buffer, received_seq_num)
+        else:
+            for seq_num in packet_to_ack:
+                logging.info(pc.PrintColor.print_in_yellow_back(
+                    f"Negative ACK for seq_num: {seq_num}"))
+
+    def add_to_buffer(self, data_to_forward, received_buffer_not_full_condition, received_data_buffer, seq_num):
+        for i in range(0, len(data_to_forward), self.chunk_size):
+            chunk = data_to_forward[i:i+self.chunk_size]
+
+            seq_num %= (2*self.process_config['window_size'])
+
+            with received_buffer_not_full_condition:
+                while received_data_buffer.is_full():
+                    # Wait until there's space in the buffer
+                    logging.info(pc.PrintColor.print_in_blue_back(
+                        f"No space in Receiveing buffer"))
+                    received_buffer_not_full_condition.wait()
+                    logging.info(pc.PrintColor.print_in_blue_back(
+                        f"Received notification that htere is space in Receiving buffer"))
+
+                if not chunk:
+                    break
+                received_data_buffer.add(chunk)
+                received_buffer_not_full_condition.notify()
+                logging.info(pc.PrintColor.print_in_red_back(
+                    f"Received chunk {seq_num} of size {len(chunk)} to buffer"))
+            seq_num += 1
 
     def prepare_packet_to_send(self, received_buffer_not_full_condition, received_data_buffer, sending_buffer_not_full_condition,
                                sending_data_buffer, sending_data_buffer_lock, sending_data_buffer_condition):
@@ -183,7 +224,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
                 with sending_buffer_not_full_condition:  # Use the condition for the sending buffer
                     while sending_data_buffer.is_full():  # Wait if the sending buffer is full
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"No space in sending buffer"))
                         sending_buffer_not_full_condition.wait()
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"Received Notification that htere is space in sending buffer"))
 
                     with sending_data_buffer_lock:
                         sending_data_buffer.add(packet)
@@ -204,53 +249,59 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     seq_num_of_packet_to_send)
                 if packet is None:
                     continue
-                # if out_socket == self.out_data_socket_up:
-                #     logging.info(f"Packet CHUNK: {packet.chunk}")
-                #     packet = super().decapsulate(packet.header.pack + packet.chunk)
 
                 with self.send_lock:
 
                     super().send_data(out_socket, packet)
-
                     logging.info(pc.PrintColor.print_in_blue_back(
                         f"Sent packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} (Data: {packet.header.size_of_data} Header: {packet.header.get_size()}) to {out_addr[0]}:{out_addr[1]}"))
-                    logging.info(packet)
+                    # logging.info(packet)
                     last_sent_seq_num = packet.seq_num
 
     def receive_ack(self, in_socket, out_socket, out_addr,
                     sending_data_buffer_condition, sending_data_buffer, sending_buffer_not_full_condition):
         while True:
+            # time.sleep(0.1)
             received_seq_num, received_src, _, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
             ).receive_data(in_socket)
 
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
                 f"Received {ack_string} for packet {received_seq_num}"))
-            # if received_src.decode() == self.process_config['name']:
-            with sending_data_buffer_condition:
+            if received_src.decode() == self.process_config['name']:
+                with sending_buffer_not_full_condition:
 
-                if received_ack_byte == 1:
-                    sending_data_buffer.remove_by_sequence(
-                        received_seq_num)
-                    logging.info(pc.PrintColor.print_in_yellow_back(
-                        f"Removed packet {received_seq_num} from sending buffer"))
-                    # Notify send_packet_from_buffer that there might be space now
-                    sending_data_buffer_condition.notify()
-                    with sending_buffer_not_full_condition:
-                        sending_buffer_not_full_condition.notify_all()
+                    if received_ack_byte == 1:
+                        logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before remove" +
+                                                                       sending_data_buffer.print_buffer()))
+                        packet = sending_data_buffer.remove_by_sequence(
+                            received_seq_num)
+                        logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after remove" +
+                                                                      sending_data_buffer.print_buffer()))
+                        if packet:
+                            logging.info(pc.PrintColor.print_in_yellow_back(
+                                f"Removed packet {packet.seq_num} from sending buffer"))
+                        # Notify send_packet_from_buffer that there might be space now
+                            sending_buffer_not_full_condition.notify()
+                            logging.info(pc.PrintColor.print_in_yellow_back(
+                                f"Notification sent that sending buffer has space"))
+                        else:
+                            logging.info(pc.PrintColor.print_in_red_back(
+                                f"could not find packet with seq num: {received_seq_num}"))
 
-                elif received_ack_byte == 3:
-                    packet = self.sending_data_buffer.get_by_sequence(
-                        received_seq_num)
-                    self.urgent_send_in_progress = True
-                    self.urgent_send_condition.notify()
-                    super().send_data(out_socket, packet)
-                    logging.info(pc.PrintColor.print_in_white_back(
-                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
-                    self.urgent_send_in_progress = False
-                    self.urgent_send_condition.notify()
-            # else:
-            #     pass
+                    elif received_ack_byte == 3:
+                        packet = self.sending_data_buffer.get_by_sequence(
+                            received_seq_num)
+                        self.urgent_send_in_progress = True
+                        self.urgent_send_condition.notify()
+                        super().send_data(out_socket, packet)
+                        logging.info(pc.PrintColor.print_in_white_back(
+                            f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
+                        self.urgent_send_in_progress = False
+                        self.urgent_send_condition.notify()
+            else:
+                # send ack to its out ack socket
+                pass
 
     def send_ack(self, in_socket, out_socket, out_addr):
         pass

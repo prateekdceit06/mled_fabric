@@ -67,10 +67,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     if not chunk:
                         break
                     self.received_data_buffer.add(chunk)
+                    self.received_buffer_not_full_condition.notify()
 
                     logging.info(pc.PrintColor.print_in_red_back(
                         f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
-                    logging.info(f"CHUNK: {chunk}")
+                    # logging.info(f"CHUNK: {chunk}")
 
     def prepare_packet_to_send(self):
         seq_num = -1
@@ -129,7 +130,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     super().send_data(out_socket, packet)
                     logging.info(pc.PrintColor.print_in_blue_back(
                         f"Sent packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} (Data: {packet.header.size_of_data} Header: {packet.header.get_size()}) to {out_addr[0]}:{out_addr[1]}"))
-                    logging.info(packet)
+                    # logging.info(packet)
                     last_sent_seq_num = packet.seq_num
 
     def receive_ack(self, in_socket, out_socket, out_addr):
@@ -208,6 +209,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         for sock in self.socket_list:
             print(super().get_socket_by_name(sock))
+
+        time.sleep(20)
 
         read_thread = threading.Thread(
             target=self.read_file_to_buffer, name="ReadThread")
