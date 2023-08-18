@@ -55,9 +55,8 @@ class Server:
         else:
             client_socket.close()
 
-    def start_server(self, terminate_event):
-        ip_list_path = os.path.join(self.path, 'ip_list.json')
-        ip_list = utils.read_json_file(ip_list_path)
+    def start_server(self, terminate_event, ip_list):
+        
         server_ip = ip_list['server_ip']
         server_port = ip_list['server_port']
         connections = ip_list['connections_manager_process']
