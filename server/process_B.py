@@ -145,7 +145,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             f"Received file successfully"))
 
     def send_ack(self, seq_num, src, dest, type, out_ack_socket):
-        time.sleep(0.1)
+        time.sleep(0.01)
         ack_header = Header(
             seq_num, src.decode(), dest.decode(), "", 0, type, [], True)
         ack_packet = Packet(ack_header, b'')

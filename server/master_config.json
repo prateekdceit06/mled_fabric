@@ -16,8 +16,8 @@
         "error_probability_bad": 0.1
       },
       "error_detection_method": {
-        "method": "checksum",
-        "parameter": "2"
+        "method": "crc",
+        "parameter": "0x07"
       },
       "processes": [
         {
