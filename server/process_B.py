@@ -2,7 +2,7 @@
 
 from process import ProcessHandlerBase
 from send_receive import SendReceive
-
+import hashlib
 import utils
 import time
 import threading
@@ -37,6 +37,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.received_data_buffer_lock = threading.Lock()
         self.received_buffer_not_full_condition = threading.Condition(
             self.received_data_buffer_lock)
+
+        self.expected_hash = None
 
     def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         seq_num = -1
@@ -118,11 +120,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     f"Received chunk {seq_num} of size {len(chunk)} to buffer"))
             seq_num += 1
 
-    def write_to_file(self, received_data_buffer):
-        path = os.path.abspath(__file__)
-        directory = os.path.dirname(path)
-        filename = os.path.join(directory, 'received_data.csv')
-        with open(filename, 'wb') as file:
+    def write_to_file(self, file_path, received_data_buffer, expected_hash, hash_method):
+
+        with open(file_path, 'wb') as file:
             while True:
                 while received_data_buffer.is_empty():
                     # Wait until there's data in the buffer
@@ -141,15 +141,34 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     self.received_buffer_not_full_condition.notify(2)
                     if last_packet:
                         break
-        logging.info(pc.PrintColor.print_in_green_back(
-            f"Received file successfully"))
+        logging.info(pc.PrintColor.print_in_green_back("File Received."))
+        is_file_verified = self.verify_file_hash(
+            file_path, expected_hash, hash_method)
+        if not is_file_verified:
+            logging.info(pc.PrintColor.print_in_red_back(
+                f"File is corrupted"))
+        else:
+            logging.info(pc.PrintColor.print_in_green_back(
+                f"File is verified successfully"))
 
     def send_ack(self, seq_num, src, dest, type, out_ack_socket):
-        time.sleep(0.01)
+        time.sleep(self.process_config['pause_time_before_ack'])
         ack_header = Header(
             seq_num, src.decode(), dest.decode(), "", 0, type, [], True)
         ack_packet = Packet(ack_header, b'')
         super().send_ack(out_ack_socket, ack_packet)
+
+    def verify_file_hash(self, file_path, expected_hash, hash_method):
+        try:
+            hash_func = getattr(hashlib, hash_method)
+        except AttributeError:
+            raise ValueError(f"Invalid hash method: {hash_method}")
+
+        with open(file_path, 'rb') as file:
+            file_data = file.read()
+            calculated_hash = hash_func(file_data).hexdigest()
+
+        return calculated_hash == expected_hash
 
     def create_data_route(self, retries, delay):
         in_data_socket = utils.create_client_socket(
@@ -179,6 +198,31 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.out_data_socket, self.out_data_addr = next(
                 out_data_socket_generator, (None, None))
 
+    def check_setup(self):
+        _, _, _, received_check_value_data, received_chunk_data, _, _, _, _ = super(
+        ).receive_data(self.in_data_socket)
+
+        error_detection_method = self.process_config['error_detection_method']['method']
+        parameter = self.process_config['error_detection_method']['parameter']
+
+        is_hash_correct = super().verify_value(received_chunk_data,
+                                               received_check_value_data.decode(), error_detection_method, parameter)
+
+        if is_hash_correct:
+            self.expected_hash = received_chunk_data.decode()
+            logging.info(pc.PrintColor.print_in_green_back(
+                f"Hash value received. Hash value is correct. Sending ACK..."))
+            self.send_ack(0, self.process_config['name'].encode(
+            ), self.process_config['left_neighbor'].encode(), 1, self.out_ack_socket)
+            return True
+        else:
+            logging.info(pc.PrintColor.print_in_red_back(
+                f"Hash value received. Hash value is not correct. Sending NACK"))
+            self.send_ack(0, self.process_config['name'].encode(
+            ), self.process_config['left_neighbor'].encode(), 3, self.out_ack_socket)
+
+            return False
+
     def create_out_sockets(self, connections, timeout, ip):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
@@ -190,17 +234,23 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             else:
                 time.sleep(self.process_config['delay_process_socket'])
 
-        for sock in self.socket_list:
-            print(super().get_socket_by_name(sock))
+        is_correct = self.check_setup()
 
-        write_thread = threading.Thread(args=(self.received_data_buffer,),
-                                        target=self.write_to_file, name="WriteToFileThread")
-        write_thread.start()
+        if is_correct:
 
-        receive_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket,
-                                                self.received_buffer_not_full_condition, self.received_data_buffer,),
-                                          target=self.receive_data, name="ReceiveDataThread")
-        receive_thread.start()
+            path = os.path.abspath(__file__)
+            directory = os.path.dirname(path)
+            received_filename = self.process_config['received_filename']
+            file_path = os.path.join(directory, received_filename)
 
-        write_thread.join()
-        receive_thread.join()
+            write_thread = threading.Thread(args=(file_path, self.received_data_buffer, self.expected_hash, self.process_config['hash_method']),
+                                            target=self.write_to_file, name="WriteToFileThread")
+            write_thread.start()
+
+            receive_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket,
+                                                    self.received_buffer_not_full_condition, self.received_data_buffer,),
+                                              target=self.receive_data, name="ReceiveDataThread")
+            receive_thread.start()
+
+            write_thread.join()
+            receive_thread.join()

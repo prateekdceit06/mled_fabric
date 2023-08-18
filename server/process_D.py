@@ -306,7 +306,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                               received_dest, received_ack_byte, out_ack_socket)
 
     def send_ack(self, seq_num, src, dest, type, out_ack_socket):
-        time.sleep(0.01)
+        time.sleep(self.process_config['pause_time_before_ack'])
         ack_header = Header(
             seq_num, src.decode(), dest.decode(), "", 0, type, [], True)
         ack_packet = Packet(ack_header, b'')
@@ -353,6 +353,23 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.out_ack_socket, self.out_ack_addr = next(
             out_ack_socket_generator, (None, None))
 
+    def check_setup(self):
+        _, _, _, received_check_value_data, received_chunk_data, _, fixed_data, received_errors_data, _ = super(
+        ).receive_data(self.in_data_socket)
+        data_to_forward = fixed_data + received_check_value_data + \
+            received_errors_data + received_chunk_data
+        packet_to_forward = super().decapsulate(data_to_forward)
+        super().send_data(self.out_data_socket, packet_to_forward)
+
+        _, received_src, received_dest, _, _, received_ack_byte, _, _, _ = super(
+        ).receive_data(self.in_ack_socket)
+
+        if received_ack_byte == 1:
+            self.send_ack(0, received_src,
+                          received_dest, 1, self.out_ack_socket)
+            return True
+        return False
+
     def create_out_sockets(self, connections, timeout, ip):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
@@ -364,32 +381,33 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             else:
                 time.sleep(self.process_config['delay_process_socket'])
 
-        for sock in self.socket_list:
-            print(super().get_socket_by_name(sock))
+        is_correct = self.check_setup()
 
-        receive_data_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket, self.received_buffer_not_full_condition, self.received_data_buffer,),
-                                               target=self.receive_data, name="ReceiveDataThread")
-        receive_data_thread.start()
+        if is_correct:
 
-        # Thread for prepare_packet_to_send
-        prepare_thread = threading.Thread(args=(self.received_buffer_not_full_condition, self.received_data_buffer, self.sending_buffer_not_full_condition,
-                                                self.sending_data_buffer, self.sending_data_buffer_lock, self.sending_data_buffer_condition,),
-                                          target=self.prepare_packet_to_send, name="PreparePacketThread")
-        prepare_thread.start()
+            receive_data_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket, self.received_buffer_not_full_condition, self.received_data_buffer,),
+                                                   target=self.receive_data, name="ReceiveDataThread")
+            receive_data_thread.start()
 
-        # Thread for send_packet_from_buffer
-        send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr, self.sending_data_buffer_condition, self.sending_data_buffer,),
-                                       target=self.send_packet_from_buffer, name="SendPacketThread")
-        send_thread.start()
+            # Thread for prepare_packet_to_send
+            prepare_thread = threading.Thread(args=(self.received_buffer_not_full_condition, self.received_data_buffer, self.sending_buffer_not_full_condition,
+                                                    self.sending_data_buffer, self.sending_data_buffer_lock, self.sending_data_buffer_condition,),
+                                              target=self.prepare_packet_to_send, name="PreparePacketThread")
+            prepare_thread.start()
 
-        # Thread for receive_ack
-        receive_ack_thread = threading.Thread(args=(self.in_ack_socket, self.out_data_socket, self.out_ack_socket, self.out_data_addr,
-                                                    self.sending_data_buffer_condition, self.sending_data_buffer, self.sending_buffer_not_full_condition,),
-                                              target=self.receive_ack, name="ReceiveAckThread")
-        receive_ack_thread.start()
+            # Thread for send_packet_from_buffer
+            send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr, self.sending_data_buffer_condition, self.sending_data_buffer,),
+                                           target=self.send_packet_from_buffer, name="SendPacketThread")
+            send_thread.start()
 
-        # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
-        receive_data_thread.join()
-        prepare_thread.join()
-        send_thread.join()
-        receive_ack_thread.join()
+            # Thread for receive_ack
+            receive_ack_thread = threading.Thread(args=(self.in_ack_socket, self.out_data_socket, self.out_ack_socket, self.out_data_addr,
+                                                        self.sending_data_buffer_condition, self.sending_data_buffer, self.sending_buffer_not_full_condition,),
+                                                  target=self.receive_ack, name="ReceiveAckThread")
+            receive_ack_thread.start()
+
+            # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
+            receive_data_thread.join()
+            prepare_thread.join()
+            send_thread.join()
+            receive_ack_thread.join()

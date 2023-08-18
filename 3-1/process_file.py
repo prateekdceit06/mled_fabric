@@ -1,4 +1,6 @@
 # Process A
+import hashlib
+import sys
 from process import ProcessHandlerBase
 from send_receive import SendReceive
 import utils
@@ -12,6 +14,7 @@ import os
 import print_colour as pc
 
 import logging
+
 
 logging.basicConfig(format=logging_format, level=logging.INFO)
 
@@ -49,10 +52,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.send_lock)
         self.urgent_send_in_progress = False
 
-    def read_file_to_buffer(self):
-        path = os.path.abspath(__file__)
-        directory = os.path.dirname(path)
-        file_path = os.path.join(directory, 'astroMLDataTest.csv')
+    def read_file_to_buffer(self, file_path):
+
         with open(file_path, 'rb') as f:
             seq_num = -1
             while True:
@@ -237,6 +238,52 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         host, port = self.process_config['child_ip'], self.process_config['child_ack_port']
         return host, port
 
+    def calculate_file_hash(self, file_path, hash_method):
+        try:
+            hash_func = getattr(hashlib, hash_method)
+        except AttributeError:
+            raise ValueError(f"Invalid hash method: {hash_method}")
+
+        with open(file_path, 'rb') as file:
+            file_data = file.read()
+            file_hash = hash_func(file_data).hexdigest()
+
+        return file_hash
+
+    def create_setup_packet(self, file_hash):
+        size_of_chunk = len(file_hash)
+        seq_num = 0
+        src = self.process_config['name']
+        dest = self.process_config['right_neighbor']
+        error_detection_method = self.process_config['error_detection_method']['method']
+        parameter = self.process_config['error_detection_method']['parameter']
+        check_value = super().get_value_to_check(
+            file_hash.encode(), error_detection_method, parameter)
+        errors = []
+
+        last_packet = True
+        header = Header(seq_num, src, dest, check_value,
+                        size_of_chunk, 0, errors, last_packet)
+        packet = Packet(header, file_hash.encode())
+        return packet
+
+    def check_setup(self, file_hash):
+        logging.info(pc.PrintColor.print_in_purple_back("Starting setup..."))
+        setup_packet = self.create_setup_packet(file_hash)
+
+        super().send_data(self.out_data_socket, setup_packet)
+
+        _, _, _, _, _, received_ack_byte, _, _, _ = super().receive_data(self.in_ack_socket)
+
+        if received_ack_byte == 1:
+            logging.info(pc.PrintColor.print_in_green_back(
+                "Setup Successful"))
+            return True
+        else:
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Setup Unsuccessful"))
+            return False
+
     def create_out_sockets(self, connections, timeout, ip):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
@@ -248,32 +295,40 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             else:
                 time.sleep(self.process_config['delay_process_socket'])
 
-        for sock in self.socket_list:
-            print(super().get_socket_by_name(sock))
+        path = os.path.abspath(__file__)
+        directory = os.path.dirname(path)
+        filename = self.process_config['filename']
+        file_path = os.path.join(directory, filename)
 
-        time.sleep(20)
+        file_hash = self.calculate_file_hash(
+            file_path, self.process_config['hash_method'])
 
-        read_thread = threading.Thread(
-            target=self.read_file_to_buffer, name="ReadFromFileThread")
-        read_thread.start()
+        is_correct = self.check_setup(file_hash)
 
-        # Thread for prepare_packet_to_send
-        prepare_thread = threading.Thread(
-            target=self.prepare_packet_to_send, name="PreparePacketThread")
-        prepare_thread.start()
+        if is_correct:
+            read_thread = threading.Thread(args=(file_path,),
+                                           target=self.read_file_to_buffer, name="ReadFromFileThread")
+            read_thread.start()
 
-        # Thread for send_packet_from_buffer
-        send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
-                                       target=self.send_packet_from_buffer, name="SendPacketThread")
-        send_thread.start()
+            # Thread for prepare_packet_to_send
+            prepare_thread = threading.Thread(
+                target=self.prepare_packet_to_send, name="PreparePacketThread")
+            prepare_thread.start()
 
-        # Thread for receive_ack
-        receive_thread = threading.Thread(
-            target=self.receive_ack, name="ReceiveAckThread", args=(self.in_ack_socket, self.out_data_socket, self.out_data_addr,))
-        receive_thread.start()
+            # Thread for send_packet_from_buffer
+            send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
+                                           target=self.send_packet_from_buffer, name="SendPacketThread")
+            send_thread.start()
 
-        # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
-        read_thread.join()
-        prepare_thread.join()
-        send_thread.join()
-        receive_thread.join()
+            # Thread for receive_ack
+            receive_thread = threading.Thread(
+                target=self.receive_ack, name="ReceiveAckThread", args=(self.in_ack_socket, self.out_data_socket, self.out_data_addr,))
+            receive_thread.start()
+
+            # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
+            read_thread.join()
+            prepare_thread.join()
+            send_thread.join()
+            receive_thread.join()
+        else:
+            sys.exit(1)

@@ -15,6 +15,7 @@ class ProcessConfigHandler:
         ip_port_dict['timeout_process_socket'] = master_config['timeout_process_socket']
         ip_port_dict['retries_process_socket'] = master_config['retries_process_socket']
         ip_port_dict['delay_process_socket'] = master_config['delay_process_socket']
+        ip_port_dict['pause_time_before_ack'] = master_config['pause_time_before_ack']
 
         for layer in master_config['layers']:
             for process in layer['processes']:
@@ -80,7 +81,16 @@ class ProcessConfigHandler:
             "mtu": self.layer['layer_mtu'],
             "error_model": self.layer['error_model'],
             "error_detection_method": self.layer['error_detection_method'],
-            "process_type": self.process['process_type']
+            "process_type": self.process['process_type'],
+            "pause_time_before_ack": ip_port_dict['pause_time_before_ack']
         }
+
+        if self.process['process_type'] == 'A':
+            process_config_to_write["hash_method"] = master_config['hash_method']
+            process_config_to_write["filename"] = master_config['filename']
+
+        if self.process['process_type'] == 'B':
+            process_config_to_write["hash_method"] = master_config['hash_method']
+            process_config_to_write["received_filename"] = master_config['received_filename']
 
         return process_config_to_write

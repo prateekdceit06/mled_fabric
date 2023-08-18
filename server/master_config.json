@@ -4,6 +4,10 @@
   "timeout_process_socket": 10,
   "retries_process_socket" : 10,
   "delay_process_socket" : 10,
+  "filename":"astroMLDataTest.csv",
+  "received_filename": "received_data.csv",
+  "pause_time_before_ack": 0.15,
+  "hash_method":"md5",
   "layers": [
     {
       "window_size": 6,
