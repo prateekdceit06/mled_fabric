@@ -51,6 +51,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.urgent_send_condition = threading.Condition(
             self.send_lock)
         self.urgent_send_in_progress = False
+        self.file_transfer_start_time = None
+        self.file_transfer_end_time = None
 
     def read_file_to_buffer(self, file_path):
 
@@ -141,11 +143,18 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 while self.urgent_send_in_progress or self.sending_data_buffer.is_empty():
                     # Wait until there's a packet to send or an urgent send is needed
                     if self.urgent_send_in_progress:
+
                         logging.info(pc.PrintColor.print_in_blue_back(
                             "Urgent packet is being sent"))
+
                     elif self.sending_data_buffer.is_empty():
+                        self.file_transfer_end_time = time.time()
+                        file_transfer_time = self.file_transfer_end_time - self.file_transfer_start_time
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Total file transfer time is {file_transfer_time:.4f} seconds"))
                         logging.info(pc.PrintColor.print_in_blue_back(
                             "No packet to send in sending buffer"))
+
                     self.sending_data_buffer_condition.wait()
                     logging.info(pc.PrintColor.print_in_blue_back(
                         "Received notification that there is a packet to send in sending buffer or urgent packet sent successfully."))
@@ -303,17 +312,20 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         file_hash = self.calculate_file_hash(
             file_path, self.process_config['hash_method'])
 
-        start_time = time.time()
+        setup_start_time = time.time()
         is_correct = self.check_setup(file_hash)
-        end_time = time.time()  # Get the current time after executing the function
+        setup_end_time = time.time()  # Get the current time after executing the function
 
         # Calculate the difference between the start and end times
-        execution_time = end_time - start_time
+        setup_time = setup_end_time - setup_start_time
         logging.info(pc.PrintColor.print_in_yellow_back(
-            f"Time it took to setup the network: {execution_time:.4f} seconds"))
+            f"Network setup time is {setup_time:.4f} seconds"))
         time.sleep(self.process_config['delay_process_socket'])
 
         if is_correct:
+
+            self.file_transfer_start_time = time.time()
+
             read_thread = threading.Thread(args=(file_path,),
                                            target=self.read_file_to_buffer, name="ReadFromFileThread")
             read_thread.start()
