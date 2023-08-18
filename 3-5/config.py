@@ -48,7 +48,7 @@ class ConfigClient:
         ip_list_config = self.get_ip_list_config(client_socket)
 
         master_config, master_config_file_path = self.get_master_config(
-            client_socket)
+            client_socket, ip_list_config['master_config_file'])
 
         process_config = self.create_process_config(
             master_config, master_config_file_path, ip_list_config)
@@ -65,9 +65,9 @@ class ConfigClient:
             sys.exit(1)
         return process_config
 
-    def get_master_config(self, client_socket):
+    def get_master_config(self, client_socket, master_config_file_name):
         master_config_file_path = os.path.join(
-            self.directory, 'master_config.json')
+            self.directory, master_config_file_name)
         master_config_handler = MasterConfigHandler(master_config_file_path)
         master_config_handler.get_master_config(client_socket)
         logging.info("Received master config from server")

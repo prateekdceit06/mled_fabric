@@ -82,7 +82,8 @@ class ProcessConfigHandler:
             "error_model": self.layer['error_model'],
             "error_detection_method": self.layer['error_detection_method'],
             "process_type": self.process['process_type'],
-            "pause_time_before_ack": ip_port_dict['pause_time_before_ack']
+            "pause_time_before_ack": ip_port_dict['pause_time_before_ack'],
+            "master_config_file": ip_list_config['master_config_file']
         }
 
         if self.process['process_type'] == 'A':

@@ -309,9 +309,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         # Calculate the difference between the start and end times
         execution_time = end_time - start_time
-        logging.info(
-            f"Time it took to setup the network: {execution_time} seconds")
-
+        logging.info(pc.PrintColor.print_in_yellow_back(
+            f"Time it took to setup the network: {execution_time:.4f} seconds"))
         time.sleep(self.process_config['delay_process_socket'])
 
         if is_correct:

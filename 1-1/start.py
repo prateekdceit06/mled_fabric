@@ -5,7 +5,6 @@ import logging
 import signal
 from utils import logging_format as logging_format
 import importlib
-import time
 
 
 logging.basicConfig(format=logging_format, level=logging.INFO)
@@ -75,7 +74,7 @@ if __name__ == '__main__':
 
     create_out_socket_thread.join()
 
-    while True:
-        pass
+    # while True:
+    #     pass
 
     logging.info("Process Ended.")
