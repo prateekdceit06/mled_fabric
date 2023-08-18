@@ -61,13 +61,19 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 with self.received_buffer_not_full_condition:
                     while self.received_data_buffer.is_full():
                         # Wait until there's space in the buffer
+                        logging.info(pc.PrintColor.print_in_blue_back(
+                            f"No space in Receiving buffer"))
                         self.received_buffer_not_full_condition.wait()
+                        logging.info(pc.PrintColor.print_in_blue_back(
+                            f"Received notification that there is space in Receiving buffer"))
 
                     chunk = f.read(self.chunk_size)
                     if not chunk:
                         break
                     self.received_data_buffer.add(chunk)
-                    self.received_buffer_not_full_condition.notify()
+                    self.received_buffer_not_full_condition.notify(2)
+                    logging.info(pc.PrintColor.print_in_yellow_back(
+                        f"Send notification that there is chunk in Receiving buffer"))
 
                     logging.info(pc.PrintColor.print_in_red_back(
                         f"Read chunk {seq_num} of size {len(chunk)} to buffer"))
@@ -76,13 +82,21 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
     def prepare_packet_to_send(self):
         seq_num = -1
         while True:
+            while self.received_data_buffer.is_empty():
+                # Wait until there's data in the buffer
+                logging.info(pc.PrintColor.print_in_blue_back(
+                    f"No data in receiving buffer"))
+                with self.received_buffer_not_full_condition:
+                    self.received_buffer_not_full_condition.wait()
+                logging.info(pc.PrintColor.print_in_blue_back(
+                    f"Received notification that there is data in receiving buffer"))
+
             chunk = None
             with self.received_buffer_not_full_condition:
-                if not self.received_data_buffer.is_empty():
-                    chunk = self.received_data_buffer.get()
-                    self.received_data_buffer.remove()
-                    # Notify read_file_to_buffer that there's space now
-                    self.received_buffer_not_full_condition.notify()
+                chunk = self.received_data_buffer.get()
+                self.received_data_buffer.remove()
+                # Notify read_file_to_buffer that there's space now
+                self.received_buffer_not_full_condition.notify(2)
 
             if chunk:
                 size_of_chunk = len(chunk)
@@ -105,13 +119,19 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
                 with self.sending_buffer_not_full_condition:  # Use the condition for the sending buffer
                     while self.sending_data_buffer.is_full():  # Wait if the sending buffer is full
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"No space in sending buffer"))
                         self.sending_buffer_not_full_condition.wait()
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"Received Notification that there is space in sending buffer"))
 
-                    with self.sending_data_buffer_lock:
-                        self.sending_data_buffer.add(packet)
-                        logging.info(pc.PrintColor.print_in_green_back(
-                            f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
-                        self.sending_data_buffer_condition.notify()
+                with self.sending_data_buffer_lock:
+                    self.sending_data_buffer.add(packet)
+                    logging.info(pc.PrintColor.print_in_green_back(
+                        f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
+                    self.sending_data_buffer_condition.notify()
+                    logging.info(pc.PrintColor.print_in_yellow_back(
+                        f"Send Notification that there is a packet to send in sending buffer"))
 
     def send_packet_from_buffer(self, out_socket, out_addr):
         last_sent_seq_num = -1  # Initialize to an invalid sequence number
@@ -119,54 +139,75 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             with self.sending_data_buffer_condition:
                 while self.urgent_send_in_progress or self.sending_data_buffer.is_empty():
                     # Wait until there's a packet to send or an urgent send is needed
+                    if self.urgent_send_in_progress:
+                        logging.info(pc.PrintColor.print_in_blue_back(
+                            "Urgent packet is being sent"))
+                    elif self.sending_data_buffer.is_empty():
+                        logging.info(pc.PrintColor.print_in_blue_back(
+                            "No packet to send in sending buffer"))
                     self.sending_data_buffer_condition.wait()
+                    logging.info(pc.PrintColor.print_in_blue_back(
+                        "Received notification that there is a packet to send in sending buffer or urgent packet sent successfully."))
+
                 seq_num_of_packet_to_send = (
                     last_sent_seq_num + 1) % (2*self.process_config['window_size'])
                 packet = self.sending_data_buffer.get_by_sequence(
                     seq_num_of_packet_to_send)
                 if packet is None:
                     continue
-                with self.send_lock:
-                    super().send_data(out_socket, packet)
-                    logging.info(pc.PrintColor.print_in_blue_back(
-                        f"Sent packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} (Data: {packet.header.size_of_data} Header: {packet.header.get_size()}) to {out_addr[0]}:{out_addr[1]}"))
-                    # logging.info(packet)
-                    last_sent_seq_num = packet.seq_num
 
-    def receive_ack(self, in_socket, out_socket, out_addr):
+            with self.send_lock:
+                super().send_data(out_socket, packet)
+                logging.info(pc.PrintColor.print_in_blue_back(
+                    f"Sent packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()}" +
+                    f" (Data: {packet.header.size_of_data} Header: {packet.header.get_size()}) to {packet.header.dest} from {packet.header.src}"))
+                # logging.info(packet)
+                last_sent_seq_num = packet.seq_num
+
+    def receive_ack(self, in_ack_socket, out_data_socket, out_addr):
         while True:
-            received_seq_num, received_src, _, _, received_chunk_data, received_ack_byte, _, _, _ = super(
-            ).receive_data(in_socket)
+            # time.sleep(0.1)
+            received_seq_num, received_src, received_dest, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
+            ).receive_data(in_ack_socket)
+
             ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
             logging.info(pc.PrintColor.print_in_purple_back(
-                f"Received {ack_string} for packet {received_seq_num}"))
+                f"Received {ack_string} for packet {received_seq_num} addressed to {received_dest} from {received_src}"))
 
-            if received_src.decode() == self.process_config['name']:
+            with self.sending_buffer_not_full_condition:
 
-                with self.sending_data_buffer_condition:
-
-                    if received_ack_byte == 1:
-                        self.sending_data_buffer.remove_by_sequence(
-                            received_seq_num)
+                if received_ack_byte == 1:
+                    # logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before remove" +
+                    #                                                self.sending_data_buffer.print_buffer()))
+                    packet = self.sending_data_buffer.remove_by_sequence(
+                        received_seq_num)
+                    # logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after remove" +
+                    #                                               self.sending_data_buffer.print_buffer()))
+                    if packet:
                         logging.info(pc.PrintColor.print_in_yellow_back(
-                            f"Removed packet {received_seq_num} from sending buffer"))
-                        # Notify send_packet_from_buffer that there might be space now
-                        self.sending_data_buffer_condition.notify()
-                        with self.sending_buffer_not_full_condition:
-                            self.sending_buffer_not_full_condition.notify()
+                            f"Removed packet {packet.seq_num} from sending buffer"))
+                    # Notify send_packet_from_buffer that there might be space now
+                        self.sending_buffer_not_full_condition.notify()
+                        logging.info(pc.PrintColor.print_in_yellow_back(
+                            f"Notification sent that sending buffer has space"))
+                    else:
+                        logging.info(pc.PrintColor.print_in_red_back(
+                            f"could not find packet with seq num: {received_seq_num}"))
 
-                    elif received_ack_byte == 3:
-                        packet = self.sending_data_buffer.get_by_sequence(
-                            received_seq_num)
-                        self.urgent_send_in_progress = True
-                        self.urgent_send_condition.notify()
-                        super().send_data(out_socket, packet)
-                        logging.info(pc.PrintColor.print_in_white_back(
-                            f"Re-sent packet {received_seq_num} of size {len(received_chunk_data)} to {out_addr[0]}:{out_addr[1]}"))
-                        self.urgent_send_in_progress = False
-                        self.urgent_send_condition.notify()
-            else:
-                pass
+                elif received_ack_byte == 3:
+                    packet = self.sending_data_buffer.get_by_sequence(
+                        received_seq_num)
+                    self.urgent_send_in_progress = True
+                    self.urgent_send_condition.notify()
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"Notification sent that urgent sending required for {received_seq_num}"))
+                    super().send_data(out_data_socket, packet)
+                    logging.info(pc.PrintColor.print_in_white_back(
+                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
+                    self.urgent_send_in_progress = False
+                    self.urgent_send_condition.notify()
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"Notification sent that urgent sending completed for {received_seq_num}"))
 
     def create_out_data_socket(self, connections, timeout, ip):
         if self.process_config['data_port'] is not None:
@@ -213,17 +254,17 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         time.sleep(20)
 
         read_thread = threading.Thread(
-            target=self.read_file_to_buffer, name="ReadThread")
+            target=self.read_file_to_buffer, name="ReadFromFileThread")
         read_thread.start()
 
         # Thread for prepare_packet_to_send
         prepare_thread = threading.Thread(
-            target=self.prepare_packet_to_send, name="PrepareThread")
+            target=self.prepare_packet_to_send, name="PreparePacketThread")
         prepare_thread.start()
 
         # Thread for send_packet_from_buffer
         send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
-                                       target=self.send_packet_from_buffer, name="SendThread")
+                                       target=self.send_packet_from_buffer, name="SendPacketThread")
         send_thread.start()
 
         # Thread for receive_ack

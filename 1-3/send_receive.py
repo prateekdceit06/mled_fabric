@@ -77,3 +77,14 @@ class SendReceive:
         packet = Packet(header, received_chunk_data)
 
         return packet
+
+    def send_ack(self, sending_socket, packet):
+        header = packet.header
+        packed_header = header.pack()
+        chunk = packet.chunk
+        sending_socket.sendall(packed_header)
+        sending_socket.send(header.check_value.encode())
+        sending_socket.sendall(struct.pack(
+            f"{header.size_of_errors}i", *header.errors))
+
+        sending_socket.sendall(chunk)
