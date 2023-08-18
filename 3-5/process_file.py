@@ -168,11 +168,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             file_data = file.read()
             calculated_hash = hash_func(file_data).hexdigest()
 
-            logging.info(pc.PrintColor.print_in_blue_back(
-                f"Calculated hash: {calculated_hash}"))
-            logging.info(pc.PrintColor.print_in_blue_back(
-                f"Expected hash: {expected_hash}"))
-
         return calculated_hash == expected_hash
 
     def create_data_route(self, retries, delay):

@@ -277,7 +277,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         if received_ack_byte == 1:
             logging.info(pc.PrintColor.print_in_green_back(
-                "Setup Successful"))
+                "Setup Successful.. Sending File..."))
             return True
         else:
             logging.info(pc.PrintColor.print_in_red_back(
@@ -303,7 +303,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         file_hash = self.calculate_file_hash(
             file_path, self.process_config['hash_method'])
 
+        start_time = time.time()
         is_correct = self.check_setup(file_hash)
+        end_time = time.time()  # Get the current time after executing the function
+
+        # Calculate the difference between the start and end times
+        execution_time = end_time - start_time
+        logging.info(pc.PrintColor.print_in_yellow_back(
+            f"Time it took to setup the network: {execution_time:.4f} seconds"))
+        time.sleep(self.process_config['delay_process_socket'])
 
         if is_correct:
             read_thread = threading.Thread(args=(file_path,),

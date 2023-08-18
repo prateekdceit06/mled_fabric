@@ -30,13 +30,13 @@ class Server:
         received_char = process_type.decode('utf-8')
         logging.info(
             f"Received process type {received_char} from client {addr[0]}")
-        tar_name = f"process_{received_char}.tar.gz"
-        routing_file_name1 = f"process_{received_char}.py"
-        routing_file1 = os.path.join(self.path, routing_file_name1)
-        process_tarfile_path = os.path.join(self.path, tar_name)
-        utils.create_tarfile(process_tarfile_path, routing_file1)
-        logging.info(f"Created tar file {tar_name}")
-        send_file_to_client(client_socket, process_tarfile_path)
+        # tar_name = f"process_{received_char}.tar.gz"
+        routing_file_name = f"process_{received_char}.py"
+        routing_file = os.path.join(self.path, routing_file_name)
+        # process_tarfile_path = os.path.join(self.path, tar_name)
+        # utils.create_tarfile(process_tarfile_path, routing_file1)
+        # logging.info(f"Created tar file {tar_name}")
+        send_file_to_client(client_socket, routing_file)
         # with lock:
         #     if connected_clients == client_ips:
         #         logging.info("All clients connected. Closing server socket")
