@@ -49,3 +49,5 @@ mled_fabric.iml
 /.vscode/
 
 /3-5/received_data.csv
+
+/server/test.py
