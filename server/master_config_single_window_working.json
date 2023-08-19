@@ -6,7 +6,7 @@
   "delay_process_socket" : 10,
   "filename":"astroMLDataTest.csv",
   "received_filename": "received_data.csv",
-  "pause_time_before_ack": 0.1,
+  "pause_time_before_ack": 0.15,
   "hash_method":"md5",
   "layers": [
     {
@@ -77,7 +77,7 @@
       ]
     },
     {
-      "window_size": 5,
+      "window_size": 1,
       "layer_mtu": 1000,
       "layer_id": 2,
       "error_model": {
@@ -124,7 +124,7 @@
       ]
     },
     {
-      "window_size": 5,
+      "window_size": 1,
       "layer_mtu": 2000,
       "layer_id": 3,
       "error_model": {

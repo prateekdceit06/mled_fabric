@@ -45,20 +45,24 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         while True:
             data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data = self.receive_packets(
-                in_socket)
+                in_socket, out_ack_socket)
             logging.info(pc.PrintColor.print_in_black_back(
                 f"Received chunk of size {len(data_to_forward)}"))
 
             self.handle_data(out_ack_socket, data_to_forward, packet_to_ack, received_src,
                              received_dest, received_seq_num, received_buffer_not_full_condition, received_data_buffer, received_check_value_data)
 
-    def receive_packets(self, in_socket):
+    def receive_packets(self, in_socket, out_ack_socket):
         data_to_forward = b''
         packet_to_ack = []
         while True:
             received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data, received_last_packet = super().receive_data(in_socket)
             packet_to_ack.append(received_seq_num)
             data_to_forward += received_chunk_data
+            logging.info(pc.PrintColor.print_in_yellow_back(
+                f"Sending positive ACK for seq_num: {received_seq_num} to {(self.process_config['child']).encode()} from {(self.process_config['name']).encode()}"))
+            self.send_ack(
+                received_seq_num, (self.process_config['name']).encode(), (self.process_config['child']).encode(), 1, out_ack_socket)
             if received_last_packet:
                 break
         return data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data
@@ -73,19 +77,14 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         received_last_packet_inner = inner_packet.header.last_packet
 
         no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
-                                             self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
+                                             self.process_config['error_detection_method']['method'], 
+                                             self.process_config['error_detection_method']['parameter'])
         if no_corruption:
             logging.info(pc.PrintColor.print_in_yellow_back(
                 f"Sending positive ACK for seq_num: {received_seq_num} to {received_src_inner} from {received_dest_inner}"))
 
             self.send_ack(received_seq_num, received_dest_inner,
                           received_src_inner, 1, out_ack_socket)
-
-            for seq_n in packet_to_ack:
-                logging.info(pc.PrintColor.print_in_yellow_back(
-                    f"Sending positive ACK for seq_num: {seq_n} to {(self.process_config['child']).encode()} from {(self.process_config['name']).encode()}"))
-                self.send_ack(
-                    seq_n, (self.process_config['name']).encode(), (self.process_config['child']).encode(), 1, out_ack_socket)
 
             self.add_to_buffer(
                 data_to_forward, received_buffer_not_full_condition, received_data_buffer, received_seq_num, received_last_packet_inner)
@@ -94,12 +93,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 f"Sending negative ACK for seq_num: {received_seq_num} to {received_src_inner} from {received_dest_inner}"))
             self.send_ack(received_seq_num, received_dest_inner,
                           received_src_inner, 3, out_ack_socket)
-
-            for seq_num in packet_to_ack:
-                logging.info(pc.PrintColor.print_in_yellow_back(
-                    f"Sending negative ACK for seq_num: {seq_num} to {(self.process_config['child']).encode()} from {(self.process_config['name']).encode()}"))
-                self.send_ack(
-                    seq_n, (self.process_config['name']).encode(), (self.process_config['child']).encode(), 3, out_ack_socket)
 
     def add_to_buffer(self, data_to_forward, received_buffer_not_full_condition, received_data_buffer, seq_num, last_packet):
         for i in range(0, len(data_to_forward), self.chunk_size):
