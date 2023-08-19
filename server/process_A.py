@@ -53,6 +53,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.urgent_send_in_progress = False
         self.file_transfer_start_time = None
         self.file_transfer_end_time = None
+        if self.process_config['packet_error_rate'] > 0:
+            self.packet_error_count = int(
+                1/self.process_config['packet_error_rate'])
+        else:
+            self.packet_error_count = 0
 
     def read_file_to_buffer(self, file_path):
 
@@ -138,6 +143,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def send_packet_from_buffer(self, out_socket, out_addr):
         last_sent_seq_num = -1  # Initialize to an invalid sequence number
+        packet_number = 0
+
         while True:
             with self.sending_data_buffer_condition:
                 while self.urgent_send_in_progress or self.sending_data_buffer.is_empty():
@@ -165,6 +172,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     seq_num_of_packet_to_send)
                 if packet is None:
                     continue
+
+            packet_number += 1
+            if self.packet_error_count > 0 and packet_number % self.packet_error_count == 1 and len(packet.chunk) >= 2*int(self.process_config['error_detection_method']['parameter']):
+                logging.info(pc.PrintColor.print_in_red_back(
+                    f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
+                packet.chunk = super().add_error(packet.chunk,
+                                                 self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
 
             with self.send_lock:
                 super().send_data(out_socket, packet)
@@ -205,19 +219,22 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             f"could not find packet with seq num: {received_seq_num}"))
 
                 elif received_ack_byte == 3:
-                    packet = self.sending_data_buffer.get_by_sequence(
-                        received_seq_num)
-                    self.urgent_send_in_progress = True
-                    self.urgent_send_condition.notify()
-                    logging.info(pc.PrintColor.print_in_red_back(
-                        f"Notification sent that urgent sending required for {received_seq_num}"))
-                    super().send_data(out_data_socket, packet)
-                    logging.info(pc.PrintColor.print_in_white_back(
-                        f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
-                    self.urgent_send_in_progress = False
-                    self.urgent_send_condition.notify()
-                    logging.info(pc.PrintColor.print_in_red_back(
-                        f"Notification sent that urgent sending completed for {received_seq_num}"))
+
+                    logging.info(pc.PrintColor.print_in_purple_back(
+                        f"Requesting the socket to send packet {received_seq_num} again"))
+                    # packet = self.sending_data_buffer.get_by_sequence(
+                    #     received_seq_num)
+                    # self.urgent_send_in_progress = True
+                    # self.urgent_send_condition.notify()
+                    # logging.info(pc.PrintColor.print_in_red_back(
+                    #     f"Notification sent that urgent sending required for {received_seq_num}"))
+                    # super().send_data(out_data_socket, packet)
+                    # logging.info(pc.PrintColor.print_in_white_back(
+                    #     f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
+                    # self.urgent_send_in_progress = False
+                    # self.urgent_send_condition.notify()
+                    # logging.info(pc.PrintColor.print_in_red_back(
+                    #     f"Notification sent that urgent sending completed for {received_seq_num}"))
 
     def create_out_data_socket(self, connections, timeout, ip):
         if self.process_config['data_port'] is not None:

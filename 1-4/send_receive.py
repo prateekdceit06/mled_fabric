@@ -88,3 +88,21 @@ class SendReceive:
             f"{header.size_of_errors}i", *header.errors))
 
         sending_socket.sendall(chunk)
+
+    def add_error(self, data, method, parameter):
+
+        if method == "checksum":
+            parameter = int(parameter)
+
+            # Check if the checksum length is valid
+            if parameter <= 0 or parameter > len(data):
+                raise ValueError("Invalid checksum length")
+
+            data_to_change = data[:(2*parameter)]
+
+            changed_data = data_to_change[parameter:] + \
+                data_to_change[:parameter]
+
+            new_data = changed_data + data[2*parameter:]
+
+            return new_data

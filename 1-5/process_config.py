@@ -83,7 +83,7 @@ class ProcessConfigHandler:
             "error_detection_method": self.layer['error_detection_method'],
             "process_type": self.process['process_type'],
             "pause_time_before_ack": ip_port_dict['pause_time_before_ack'],
-            "master_config_file": ip_list_config['master_config_file']
+            "master_config_file": ip_list_config['master_config_file'],
         }
 
         if self.process['process_type'] == 'A':
@@ -93,5 +93,8 @@ class ProcessConfigHandler:
         if self.process['process_type'] == 'B':
             process_config_to_write["hash_method"] = master_config['hash_method']
             process_config_to_write["received_filename"] = master_config['received_filename']
+
+        if self.process['process_type'] in ['A', 'C', 'E']:
+            process_config_to_write["packet_error_rate"] = self.process['packet_error_rate']
 
         return process_config_to_write

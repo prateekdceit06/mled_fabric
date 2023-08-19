@@ -77,7 +77,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.received_data_down_buffer_lock = threading.Lock()
         self.received_down_buffer_not_full_condition = threading.Condition(
             self.received_data_down_buffer_lock)
-        
 
         self.sending_data_down_buffer_lock = threading.Lock()
         self.sending_data_down_buffer_condition = threading.Condition(
@@ -85,6 +84,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.sending_down_buffer_not_full_condition = threading.Condition(
             self.sending_data_down_buffer_lock
         )
+
+        if self.process_config['packet_error_rate'] > 0:
+            self.packet_error_count = int(
+                1/self.process_config['packet_error_rate'])
+        else:
+            self.packet_error_count = 0
 
     def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         seq_num = -1
@@ -266,7 +271,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def send_packet_from_buffer(self, out_socket, out_addr, sending_data_buffer_condition, sending_data_buffer):
         last_sent_seq_num = -1  # Initialize to an invalid sequence number
+        packet_number = 0
         while True:
+            
             with sending_data_buffer_condition:
                 while self.urgent_send_in_progress or sending_data_buffer.is_empty():
                     # Wait until there's a packet to send or an urgent send is needed
@@ -285,6 +292,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     seq_num_of_packet_to_send)
                 if packet is None:
                     continue
+            packet_number += 1
+            if self.packet_error_count > 0 and packet_number % self.packet_error_count == 1 and len(packet.chunk) >= 2*int(self.process_config['error_detection_method']['parameter']):
+                logging.info(pc.PrintColor.print_in_red_back(
+                    f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
+                packet.chunk = super().add_error(packet.chunk,
+                                                 self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
 
             with self.send_lock:
 

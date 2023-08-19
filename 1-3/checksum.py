@@ -6,7 +6,13 @@ class Checksum:
         sum_val = 0
         for i in range(0, len(input_data), self.checksum_length):
             segment_end = min(i + self.checksum_length, len(input_data))
-            sum_val += self.byte_array_to_int(input_data, i, segment_end)
+            segment = input_data[i:segment_end]
+
+            padding_length = self.checksum_length - len(segment)
+            segment += bytes([0] * padding_length)
+
+
+            sum_val += self.byte_array_to_int(segment, 0, self.checksum_length)
         checksum = ~sum_val
         return str(checksum)
 
