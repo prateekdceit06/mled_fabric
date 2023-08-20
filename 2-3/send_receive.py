@@ -89,7 +89,7 @@ class SendReceive:
 
         sending_socket.sendall(chunk)
 
-    def add_error(self, data, method, parameter):
+    def add_error(self, data, error_introduction_location, method, parameter):
 
         if method == "checksum":
             parameter = int(parameter)
@@ -98,11 +98,17 @@ class SendReceive:
             if parameter <= 0 or parameter > len(data):
                 raise ValueError("Invalid checksum length")
 
-            data_to_change = data[:(2*parameter)]
+            error_introduction_location = error_introduction_location - \
+                (error_introduction_location % parameter)
+
+            data_to_change = data[error_introduction_location +
+                                  1:error_introduction_location+1+(2*parameter)]
 
             changed_data = data_to_change[parameter:] + \
                 data_to_change[:parameter]
 
-            new_data = changed_data + data[2*parameter:]
+            new_data = data[:error_introduction_location+1] + \
+                changed_data + \
+                data[error_introduction_location+1+(2*parameter):]
 
             return new_data

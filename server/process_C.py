@@ -169,19 +169,29 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     seq_num_of_packet_to_send)
                 if packet is None:
                     continue
-            packet_number += 1
-            if self.packet_error_count > 0 and packet_number % self.packet_error_count == 1 and len(packet.chunk) >= 2*int(self.process_config['error_detection_method']['parameter']):
-                logging.info(pc.PrintColor.print_in_red_back(
-                    f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
-                packet.chunk = super().add_error(packet.chunk,
-                                                 self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
 
-            with self.send_lock:
+            if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0 and \
+                    len(packet.chunk) >= self.process_config['error_introduction_location']+(2*int(self.process_config['error_detection_method']['parameter'])):
+                logging.info(pc.PrintColor.print_in_cyan_back(
+                    f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
+                new_chunk = super().add_error(packet.chunk, self.process_config['error_introduction_location'],
+                                              self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
+                new_packet = Packet(packet.header, new_chunk)
+                packet = new_packet
+            packet_number += 1
+
+            with self.urgent_send_condition:
                 super().send_data(out_socket, packet)
                 logging.info(pc.PrintColor.print_in_blue_back(
                     f"Sent packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()}" +
                     f" (Data: {packet.header.size_of_data} Header: {packet.header.get_size()}) to {packet.header.dest} from {packet.header.src}"))
-                # logging.info(packet)
+
+                while self.urgent_send_in_progress and packet.header.last_packet:
+                    logging.info(pc.PrintColor.print_in_purple_back(
+                        "Urgent packet is being sent"))
+                    self.urgent_send_condition.wait()
+                    logging.info(pc.PrintColor.print_in_purple_back(
+                        f"Notification sent that urgent sending completed for {packet.seq_num}"))
 
                 last_sent_seq_num = packet.seq_num
 
@@ -199,12 +209,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 with self.sending_buffer_not_full_condition:
 
                     if received_ack_byte == 1:
-                        # logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before remove" +
-                        #                                                self.sending_data_buffer.print_buffer()))
+                        logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before remove" +
+                                                                       self.sending_data_buffer.print_buffer()))
                         packet = self.sending_data_buffer.remove_by_sequence(
                             received_seq_num)
-                        # logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after remove" +
-                        #                                               self.sending_data_buffer.print_buffer()))
+                        logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after remove" +
+                                                                      self.sending_data_buffer.print_buffer()))
                         if packet:
                             logging.info(pc.PrintColor.print_in_yellow_back(
                                 f"Removed packet {packet.seq_num} from sending buffer"))
@@ -217,19 +227,25 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                 f"could not find packet with seq num: {received_seq_num}"))
 
                     elif received_ack_byte == 3:
-                        packet = self.sending_data_buffer.get_by_sequence(
-                            received_seq_num)
                         self.urgent_send_in_progress = True
-                        self.urgent_send_condition.notify()
-                        logging.info(pc.PrintColor.print_in_red_back(
-                            f"Notification sent that urgent sending required for {received_seq_num}"))
-                        super().send_data(out_data_socket, packet)
-                        logging.info(pc.PrintColor.print_in_white_back(
-                            f"Re-sent packet {received_seq_num} of size {received_size_of_chunk} to {out_addr[0]}:{out_addr[1]}"))
-                        self.urgent_send_in_progress = False
-                        self.urgent_send_condition.notify()
-                        logging.info(pc.PrintColor.print_in_red_back(
-                            f"Notification sent that urgent sending completed for {received_seq_num}"))
+                        logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before sending" +
+                                                                       self.sending_data_buffer.print_buffer()))
+                        logging.info(pc.PrintColor.print_in_purple_back(
+                            f"Urgent sending flag set to true for packet {received_seq_num}"))
+                        with self.urgent_send_condition:
+                            logging.info(pc.PrintColor.print_in_purple_back(
+                                f"Requesting the socket to send packet {received_seq_num} again"))
+                            packet = self.sending_data_buffer.get_by_sequence(
+                                received_seq_num)
+                            logging.info(packet)
+
+                            super().send_data(out_data_socket, packet)
+                            logging.info(pc.PrintColor.print_in_purple_back(
+                                f"Re-sent packet {received_seq_num} of size {len(packet.chunk)} to {received_src}"))
+                            logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after sending" +
+                                                                          self.sending_data_buffer.print_buffer()))
+                            self.urgent_send_in_progress = False
+                            self.urgent_send_condition.notify()
             else:
                 # send ack to its out ack socket
                 logging.info(pc.PrintColor.print_in_purple_back(

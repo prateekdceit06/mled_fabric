@@ -57,6 +57,7 @@ class CircularBuffer:
 
     def print_buffer(self):
         buffer_str = ""
+        buffer_str += f"Head: {self.head} Tail: {self.tail} Count: {self.count} -- "
         with self.lock:
             for i in range(len(self.buffer)):
                 packet = self.buffer[i]

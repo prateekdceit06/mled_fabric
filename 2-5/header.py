@@ -4,16 +4,22 @@ fixed_format = "i 3s 3s i i B i ?"
 
 
 class Header:
-    def __init__(self, seq_num, src, dest, check_value, size_of_data, ack_byte, errors, last_packet):
+    def __init__(self, seq_num, src=None, dest=None, check_value=None, size_of_data=None, ack_byte=None, errors=None, last_packet=None):
 
         self.seq_num = seq_num
         self.src = src
         self.dest = dest
-        self.size_of_check_value = len(check_value)
+        if check_value is not None:
+            self.size_of_check_value = len(check_value)
+        else:
+            self.size_of_check_value = 0
         self.check_value = check_value
         self.size_of_data = size_of_data
         self.ack_byte = ack_byte
-        self.size_of_errors = len(errors)
+        if errors is not None:
+            self.size_of_errors = len(errors)
+        else:
+            self.size_of_errors = 0
         self.errors = errors
         self.last_packet = last_packet
 

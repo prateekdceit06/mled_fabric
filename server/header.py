@@ -4,7 +4,7 @@ fixed_format = "i 3s 3s i i B i ?"
 
 
 class Header:
-    def __init__(self, seq_num, src, dest, check_value, size_of_data, ack_byte, errors, last_packet):
+    def __init__(self, seq_num, src=None, dest=None, check_value=None, size_of_data=None, ack_byte=None, errors=None, last_packet=None):
 
         self.seq_num = seq_num
         self.src = src

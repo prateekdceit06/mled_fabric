@@ -77,7 +77,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         received_last_packet_inner = inner_packet.header.last_packet
 
         no_corruption = super().verify_value(data_to_forward, received_check_value_data.decode(),
-                                             self.process_config['error_detection_method']['method'], 
+                                             self.process_config['error_detection_method']['method'],
                                              self.process_config['error_detection_method']['parameter'])
         if no_corruption:
             logging.info(pc.PrintColor.print_in_yellow_back(
@@ -107,14 +107,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Received notification that there is space in Receiving buffer"))
                 if not chunk:
                     break
-                received_data_buffer.add((chunk, last_packet))
+                header = Header(seq_num, last_packet=last_packet)
+                packet = Packet(header, chunk)
+                received_data_buffer.add(packet)
                 received_buffer_not_full_condition.notify(2)
                 logging.info(pc.PrintColor.print_in_red_back(
                     f"Received chunk {seq_num} of size {len(chunk)} to buffer"))
             seq_num += 1
 
     def write_to_file(self, file_path, received_data_buffer, expected_hash, hash_method):
-
+        last_written_seq_num = -1
         with open(file_path, 'wb') as file:
             while True:
                 while received_data_buffer.is_empty():
@@ -127,12 +129,18 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Received notification that there is data in receiving buffer"))
 
                 with self.received_buffer_not_full_condition:
-                    chunk, last_packet = received_data_buffer.get()
-                    file.write(chunk)
+                    seq_num_of_packet_to_send = (
+                        last_written_seq_num + 1) % (2*self.process_config['window_size'])
+                    packet = received_data_buffer.get_by_sequence(
+                        seq_num_of_packet_to_send)
+                    if packet is None:
+                        continue
+                    file.write(packet.chunk)
                     file.flush()  # Flush the data to the file
+                    last_written_seq_num = packet.header.seq_num
                     received_data_buffer.remove()
                     self.received_buffer_not_full_condition.notify(2)
-                    if last_packet:
+                    if packet.header.last_packet:
                         break
         logging.info(pc.PrintColor.print_in_green_back("File Received."))
         is_file_verified = self.verify_file_hash(

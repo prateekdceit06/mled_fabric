@@ -96,5 +96,6 @@ class ProcessConfigHandler:
 
         if self.process['process_type'] in ['A', 'C', 'E']:
             process_config_to_write["packet_error_rate"] = self.process['packet_error_rate']
+            process_config_to_write["error_introduction_location"] = master_config['error_introduction_location']
 
         return process_config_to_write
