@@ -92,6 +92,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.packet_error_count = 0
 
         self.last_seq_num = -1
+        self.last_packet_acked = -1
 
     def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         # seq_num = -1
@@ -303,7 +304,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     last_sent_seq_num + 1) % (2*self.process_config['window_size'])
                 packet = sending_data_buffer.get_by_sequence(
                     seq_num_of_packet_to_send)
-                if packet is None:
+                if packet is None or seq_num_of_packet_to_send > (self.last_packet_acked + self.process_config['window_size']):
                     continue
 
             if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0 and \
@@ -363,6 +364,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         else:
                             logging.info(pc.PrintColor.print_in_red_back(
                                 f"could not find packet with seq num: {received_seq_num}"))
+
+                        self.last_packet_acked = received_seq_num
 
                     elif received_ack_byte == 3:
                         self.urgent_send_in_progress = True

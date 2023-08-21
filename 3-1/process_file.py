@@ -60,6 +60,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         else:
             self.packet_error_count = 0
 
+        self.last_packet_acked = -1
+
     def read_file_to_buffer(self, file_path):
 
         with open(file_path, 'rb') as f:
@@ -165,7 +167,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     last_sent_seq_num + 1) % (2*self.process_config['window_size'])
                 packet = self.sending_data_buffer.get_by_sequence(
                     seq_num_of_packet_to_send)
-                if packet is None:
+                if packet is None or seq_num_of_packet_to_send > (self.last_packet_acked + self.process_config['window_size']):
                     continue
 
             if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0 and \
@@ -173,7 +175,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 logging.info(pc.PrintColor.print_in_cyan_back(
                     f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
                 new_chunk = super().add_error(packet.chunk, self.process_config['error_introduction_location'],
-                                                     self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
+                                              self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
                 new_packet = Packet(packet.header, new_chunk)
                 packet = new_packet
             packet_number += 1
@@ -222,6 +224,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     else:
                         logging.info(pc.PrintColor.print_in_red_back(
                             f"could not find packet with seq num: {received_seq_num}"))
+
+                    self.last_packet_acked = received_seq_num
 
                 elif received_ack_byte == 3:
                     self.urgent_send_in_progress = True
