@@ -240,6 +240,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             received_packet = None
             with received_buffer_not_full_condition:
                 received_packet = received_data_buffer.get()
+                accepted_packets_in_flight = [(self.last_packet_acked + 1 + i) % (
+                    2 * self.process_config['window_size']) for i in range(self.process_config['window_size'])]
+                if received_packet is None or received_packet.header.seq_num not in accepted_packets_in_flight:
+                    continue
                 received_data_buffer.remove()
                 # Notify read_file_to_buffer that there's space now
                 received_buffer_not_full_condition.notify(2)
