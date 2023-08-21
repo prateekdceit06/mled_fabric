@@ -167,7 +167,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     last_sent_seq_num + 1) % (2*self.process_config['window_size'])
                 packet = self.sending_data_buffer.get_by_sequence(
                     seq_num_of_packet_to_send)
-                if packet is None or seq_num_of_packet_to_send > (self.last_packet_acked + self.process_config['window_size']):
+                accepted_packets_in_flight = [(self.last_packet_acked + 1 + i) % (
+                    2 * self.process_config['window_size']) for i in range(self.process_config['window_size'])]
+                if packet is None or seq_num_of_packet_to_send not in accepted_packets_in_flight:
                     continue
 
             if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0 and \

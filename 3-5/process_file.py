@@ -94,10 +94,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.send_ack(received_seq_num, received_dest_inner,
                           received_src_inner, 3, out_ack_socket)
 
-    def add_to_buffer(self, data_to_forward, received_buffer_not_full_condition, received_data_buffer, seq_num, last_packet):
+    def add_to_buffer(self, data_to_forward, received_buffer_not_full_condition, received_data_buffer, received_seq_num, last_packet):
         for i in range(0, len(data_to_forward), self.chunk_size):
+            seq_num = received_seq_num
             chunk = data_to_forward[i:i+self.chunk_size]
-            seq_num %= (2*self.process_config['window_size'])
+            # seq_num %= (2*self.process_config['window_size'])
             with received_buffer_not_full_condition:
                 while received_data_buffer.is_full():
                     logging.info(pc.PrintColor.print_in_blue_back(
@@ -109,11 +110,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     break
                 header = Header(seq_num, last_packet=last_packet)
                 packet = Packet(header, chunk)
+                logging.info(pc.PrintColor.print_in_cyan_back(
+                    f"Received Data Buffer before adding: {received_data_buffer.print_buffer()}"))
                 received_data_buffer.add(packet)
+                logging.info(pc.PrintColor.print_in_blue_back(
+                    f"Received Data Buffer before adding: {received_data_buffer.print_buffer()}"))
+
                 received_buffer_not_full_condition.notify(2)
                 logging.info(pc.PrintColor.print_in_red_back(
                     f"Received chunk {seq_num} of size {len(chunk)} to buffer"))
-            seq_num += 1
+            # seq_num += 1
 
     def write_to_file(self, file_path, received_data_buffer, expected_hash, hash_method):
         last_written_seq_num = -1
@@ -133,12 +139,22 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         last_written_seq_num + 1) % (2*self.process_config['window_size'])
                     packet = received_data_buffer.get_by_sequence(
                         seq_num_of_packet_to_send)
+                    # logging.info(pc.PrintColor.print_in_purple_back(f"seq_num_of_packet_to_send: {seq_num_of_packet_to_send}"))
                     if packet is None:
                         continue
                     file.write(packet.chunk)
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"Writing chunk {packet.header.seq_num} of size {len(packet.chunk)} to file"))
                     file.flush()  # Flush the data to the file
                     last_written_seq_num = packet.header.seq_num
-                    received_data_buffer.remove()
+                    logging.info(pc.PrintColor.print_in_cyan_back(
+                        f"Received Data Buffer before removing: {received_data_buffer.print_buffer()}"))
+
+                    received_data_buffer.remove_by_sequence(
+                        last_written_seq_num)
+                    logging.info(pc.PrintColor.print_in_blue_back(
+                        f"Received Data Buffer after removing: {received_data_buffer.print_buffer()}"))
+
                     self.received_buffer_not_full_condition.notify(2)
                     if packet.header.last_packet:
                         break
