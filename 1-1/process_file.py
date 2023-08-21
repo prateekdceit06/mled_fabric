@@ -83,7 +83,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
                     if not chunk:
                         break
-                    self.received_data_buffer.add(chunk)
+                    header = Header(seq_num)
+                    packet = Packet(header, chunk)
+                    self.received_data_buffer.add(packet)
                     self.received_buffer_not_full_condition.notify(2)
                     logging.info(pc.PrintColor.print_in_yellow_back(
                         f"Send notification that there is chunk in Receiving buffer"))
@@ -92,7 +94,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     # logging.info(f"CHUNK: {chunk}")
 
     def prepare_packet_to_send(self):
-        seq_num = -1
+        # seq_num = -1
         while True:
             while self.received_data_buffer.is_empty():
                 # Wait until there's data in the buffer
@@ -102,19 +104,21 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     self.received_buffer_not_full_condition.wait()
                 logging.info(pc.PrintColor.print_in_blue_back(
                     f"Received notification that there is data in receiving buffer"))
-            chunk = None
+            received_packet = None
             with self.received_buffer_not_full_condition:
-                chunk = self.received_data_buffer.get()
+                received_packet = self.received_data_buffer.get()
                 self.received_data_buffer.remove()
                 # Notify read_file_to_buffer that there's space now
                 self.received_buffer_not_full_condition.notify(2)
                 logging.info(pc.PrintColor.print_in_blue_back(
                     f"Notified that there is space in receiving buffer"))
 
-            if chunk:
+            if received_packet:
+                chunk = received_packet.chunk
+                seq_num = received_packet.header.seq_num
                 size_of_chunk = len(chunk)
-                seq_num += 1
-                seq_num %= (2*self.process_config['window_size'])
+                # seq_num += 1
+                # seq_num %= (2*self.process_config['window_size'])
                 src = self.process_config['name']
                 dest = self.process_config['right_neighbor']
                 error_detection_method = self.process_config['error_detection_method']['method']

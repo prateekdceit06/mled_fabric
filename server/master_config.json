@@ -34,7 +34,7 @@
           "right_neighbor": "1-2",
           "left_neighbor": null,
           "process_type": "C",
-          "packet_error_rate":0.1
+          "packet_error_rate":0.0
         },
         {
           "ip": "10.0.0.102",
@@ -67,7 +67,7 @@
           "right_neighbor": "1-5",
           "left_neighbor": "1-3",
           "process_type": "E",
-          "packet_error_rate":0.0
+          "packet_error_rate":0.1
         },
         {
           "ip": "10.0.0.105",
