@@ -227,6 +227,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
     def prepare_packet_to_send(self, received_buffer_not_full_condition, received_data_buffer, sending_buffer_not_full_condition,
                                sending_data_buffer, sending_data_buffer_lock, sending_data_buffer_condition):
         # seq_num = -1
+        index = -1
         while True:
             while received_data_buffer.is_empty():
                 # Wait until there's data in the buffer
@@ -239,12 +240,28 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             received_packet = None
             with received_buffer_not_full_condition:
-                received_packet = received_data_buffer.get()
-                accepted_packets_in_flight = [(self.last_packet_acked + 1 + i) % (
-                    2 * self.process_config['window_size']) for i in range(self.process_config['window_size'])]
-                if received_packet is None or received_packet.header.seq_num not in accepted_packets_in_flight:
-                    continue
-                received_data_buffer.remove()
+                while True:
+                    accepted_packets_in_flight = [(self.last_packet_acked + 1 + i) % (
+                        2 * self.process_config['window_size']) for i in range(self.process_config['window_size'])]
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"\nlast acked packet: {self.last_packet_acked}\naccepted packets in flight: {accepted_packets_in_flight}\n"))
+
+                    index += 1
+                    recieved_seq_num = accepted_packets_in_flight[index % len(
+                        accepted_packets_in_flight)]
+                    received_packet = received_data_buffer.get_by_sequence(
+                        recieved_seq_num)
+                    if received_packet is not None:
+                        break
+                index = -1
+                logging.info(pc.PrintColor.print_in_cyan_back(
+                    f"Received Buffer before removing: {received_data_buffer.print_buffer()}"))
+                packet = received_data_buffer.remove_by_sequence(
+                    recieved_seq_num)
+                # logging.info(f"PAcket: {packet}")
+                logging.info(pc.PrintColor.print_in_cyan_back(
+                    f"Received Buffer after removing: {received_data_buffer.print_buffer()}"))
+
                 # Notify read_file_to_buffer that there's space now
                 received_buffer_not_full_condition.notify(2)
                 logging.info(pc.PrintColor.print_in_blue_back(

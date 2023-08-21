@@ -179,6 +179,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 while True:
                     accepted_packets_in_flight = [(self.last_packet_acked + 1 + i) % (
                         2 * self.process_config['window_size']) for i in range(self.process_config['window_size'])]
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"\nlast acked packet: {self.last_packet_acked}\naccepted packets in flight: {accepted_packets_in_flight}\n"))
                     index += 1
                     recieved_seq_num = accepted_packets_in_flight[index % len(
                         accepted_packets_in_flight)]
@@ -191,7 +193,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     f"Received Buffer before removing: {received_data_buffer.print_buffer()}"))
                 packet = received_data_buffer.remove_by_sequence(
                     recieved_seq_num)
-                logging.info(f"PAcket: {packet}")
+                # logging.info(f"PAcket: {packet}")
                 logging.info(pc.PrintColor.print_in_cyan_back(
                     f"Received Buffer after removing: {received_data_buffer.print_buffer()}"))
 

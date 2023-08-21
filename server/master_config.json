@@ -6,7 +6,7 @@
   "delay_process_socket" : 10,
   "filename":"astroMLDataTest.csv",
   "received_filename": "received_data.csv",
-  "pause_time_before_ack": 0.25,
+  "pause_time_before_ack": 0.2,
   "hash_method":"md5",
   "error_introduction_location": 150,
   "layers": [
@@ -67,7 +67,7 @@
           "right_neighbor": "1-5",
           "left_neighbor": "1-3",
           "process_type": "E",
-          "packet_error_rate":0.1
+          "packet_error_rate":0.01
         },
         {
           "ip": "10.0.0.105",
@@ -93,7 +93,7 @@
       },
       "error_detection_method": {
         "method": "checksum",
-        "parameter": "3"
+        "parameter": "2"
       },
       "processes": [
         {
