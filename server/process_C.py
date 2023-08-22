@@ -347,21 +347,25 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         if is_correct:
             receive_data_thread = threading.Thread(args=(self.in_data_socket,),
                                                    target=self.receive_data, name="ReceiveDataThread")
+            receive_data_thread.daemon = True
             receive_data_thread.start()
 
             # Thread for prepare_packet_to_send
             prepare_thread = threading.Thread(
                 target=self.prepare_packet_to_send, name="PreparePacketThread")
+            prepare_thread.daemon = True
             prepare_thread.start()
 
             # Thread for send_packet_from_buffer
             send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
                                            target=self.send_packet_from_buffer, name="SendPacketThread")
+            send_thread.daemon = True
             send_thread.start()
 
             # Thread for receive_ack
             receive_ack_thread = threading.Thread(args=(self.in_ack_socket, self.out_data_socket, self.out_ack_socket, self.out_data_addr,),
                                                   target=self.receive_ack, name="ReceiveAckThread")
+            receive_ack_thread.daemon = True
             receive_ack_thread.start()
 
             receive_data_thread.join()

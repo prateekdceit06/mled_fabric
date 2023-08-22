@@ -408,23 +408,27 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             receive_data_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket, self.received_buffer_not_full_condition, self.received_data_buffer,),
                                                    target=self.receive_data, name="ReceiveDataThread")
+            receive_data_thread.daemon = True
             receive_data_thread.start()
 
             # Thread for prepare_packet_to_send
             prepare_thread = threading.Thread(args=(self.received_buffer_not_full_condition, self.received_data_buffer, self.sending_buffer_not_full_condition,
                                                     self.sending_data_buffer, self.sending_data_buffer_lock, self.sending_data_buffer_condition,),
                                               target=self.prepare_packet_to_send, name="PreparePacketThread")
+            prepare_thread.daemon = True
             prepare_thread.start()
 
             # Thread for send_packet_from_buffer
             send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr, self.sending_data_buffer_condition, self.sending_data_buffer,),
                                            target=self.send_packet_from_buffer, name="SendPacketThread")
+            send_thread.daemon = True
             send_thread.start()
 
             # Thread for receive_ack
             receive_ack_thread = threading.Thread(args=(self.in_ack_socket, self.out_data_socket, self.out_ack_socket, self.out_data_addr,
                                                         self.sending_data_buffer_condition, self.sending_data_buffer, self.sending_buffer_not_full_condition,),
                                                   target=self.receive_ack, name="ReceiveAckThread")
+            receive_ack_thread.daemon = True
             receive_ack_thread.start()
 
             # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)

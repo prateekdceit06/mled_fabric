@@ -98,7 +98,12 @@ class ConfigClient:
         process_file_path = os.path.join(self.directory, filename)
         client_socket.sendall(char_to_send.encode('utf-8'))
         length = int.from_bytes(client_socket.recv(4), byteorder='big')
-        data = client_socket.recv(length)
+        data = bytearray()
+        while len(data) < length:
+            packet = client_socket.recv(length - len(data))
+            if not packet:
+                raise Exception("Socket connection broken")
+            data.extend(packet)
         with open(process_file_path, 'wb') as f:
             f.write(data)
         logging.info(f"Received process file from server: {filename}")

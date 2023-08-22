@@ -75,7 +75,4 @@ if __name__ == '__main__':
 
     create_out_socket_thread.join()
 
-    while True:
-        pass
-
     logging.info("Process Ended.")

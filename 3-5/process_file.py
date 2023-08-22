@@ -262,11 +262,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             write_thread = threading.Thread(args=(file_path, self.received_data_buffer, self.expected_hash, self.process_config['hash_method']),
                                             target=self.write_to_file, name="WriteToFileThread")
+            write_thread.daemon = True
             write_thread.start()
 
             receive_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket,
                                                     self.received_buffer_not_full_condition, self.received_data_buffer,),
                                               target=self.receive_data, name="ReceiveDataThread")
+            receive_thread.daemon = True
             receive_thread.start()
 
             write_thread.join()

@@ -603,6 +603,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                                   self.received_down_buffer_not_full_condition,
                                                                   self.received_data_down_buffer,),
                                                             target=self.receive_data, name="ReceiveDataDownThread")
+                receive_down_data_thread.daemon = True
                 receive_down_data_thread.start()
 
                 # Thread for prepare_packet_to_send
@@ -610,12 +611,14 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                              self.sending_down_buffer_not_full_condition, self.sending_data_down_buffer,
                                                              self.sending_data_down_buffer_lock, self.sending_data_down_buffer_condition,),
                                                        target=self.prepare_packet_to_send, name="PreparePacketDownThread")
+                prepare_down_thread.daemon = True
                 prepare_down_thread.start()
 
                 # Thread for send_packet_from_buffer
                 send_down_thread = threading.Thread(args=(self.out_data_socket_down, self.out_data_addr_down,
                                                           self.sending_data_down_buffer_condition, self.sending_data_down_buffer,),
                                                     target=self.send_packet_from_buffer, name="SendPacketDownThread")
+                send_down_thread.daemon = True
                 send_down_thread.start()
 
                 # Thread for receive_ack
@@ -624,6 +627,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                                  self.sending_data_down_buffer_condition, self.sending_data_down_buffer,
                                                                  self.sending_down_buffer_not_full_condition,),
                                                            target=self.receive_ack, name="ReceiveAckDownThread")
+                receive_ack_down_thread.daemon = True
                 receive_ack_down_thread.start()
 
                 # send_ack_thread = threading.Thread(args=(self.out_ack_socket_down,),
@@ -642,34 +646,40 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                                   self.received_down_buffer_not_full_condition,
                                                                   self.received_data_down_buffer,),
                                                             target=self.receive_data, name="ReceiveDataDownThread")
+                receive_down_data_thread.daemon = True
                 receive_down_data_thread.start()
 
                 prepare_up_thread = threading.Thread(args=(self.received_down_buffer_not_full_condition, self.received_data_down_buffer,
                                                            self.sending_down_buffer_not_full_condition, self.sending_data_down_buffer,
                                                            self.sending_data_down_buffer_lock, self.sending_data_down_buffer_condition,),
                                                      target=self.prepare_packet_to_send, name="PreparePacketUpThread")
+                prepare_up_thread.daemon = True
                 prepare_up_thread.start()
 
                 send_up_thread = threading.Thread(args=(self.out_data_socket_up, self.out_data_addr_up,
                                                         self.sending_data_down_buffer_condition, self.sending_data_down_buffer,),
                                                   target=self.send_packet_from_buffer, name="SendPacketUpThread")
+                send_up_thread.daemon = True
                 send_up_thread.start()
 
                 receive_up_data_thread = threading.Thread(args=(self.in_data_socket_up, self.out_ack_socket_up,
                                                                 self.received_up_buffer_not_full_condition,
                                                                 self.received_data_up_buffer,),
                                                           target=self.receive_data, name="ReceiveDataUpThread")
+                receive_up_data_thread.daemon = True
                 receive_up_data_thread.start()
 
                 prepare_down_thread = threading.Thread(args=(self.received_up_buffer_not_full_condition, self.received_data_up_buffer,
                                                              self.sending_up_buffer_not_full_condition, self.sending_data_up_buffer,
                                                              self.sending_data_up_buffer_lock, self.sending_data_up_buffer_condition,),
                                                        target=self.prepare_packet_to_send, name="PreparePacketDownThread")
+                prepare_down_thread.daemon = True
                 prepare_down_thread.start()
 
                 send_down_thread = threading.Thread(args=(self.out_data_socket_down, self.out_data_addr_down,
                                                           self.sending_data_up_buffer_condition, self.sending_data_up_buffer,),
                                                     target=self.send_packet_from_buffer, name="SendPacketDownThread")
+                send_down_thread.daemon = True
                 send_down_thread.start()
 
                 receive_ack_down_thread = threading.Thread(args=(self.in_ack_socket_down, self.out_data_socket_down, self.out_ack_socket_up,
@@ -677,6 +687,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                                  self.sending_data_up_buffer_condition, self.sending_data_up_buffer,
                                                                  self.sending_up_buffer_not_full_condition,),
                                                            target=self.receive_ack, name="ReceiveAckDownThread")
+                receive_ack_down_thread.daemon = True
                 receive_ack_down_thread.start()
 
                 receive_ack_up_thread = threading.Thread(args=(self.in_ack_socket_up, self.out_data_socket_up, self.out_ack_socket_down,
@@ -684,6 +695,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                                self.sending_data_down_buffer_condition, self.sending_data_down_buffer,
                                                                self.sending_down_buffer_not_full_condition,),
                                                          target=self.receive_ack, name="ReceiveAckUpThread")
+                receive_ack_up_thread.daemon = True
                 receive_ack_up_thread.start()
 
                 receive_down_data_thread.join

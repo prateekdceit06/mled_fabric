@@ -358,21 +358,25 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             read_thread = threading.Thread(args=(file_path,),
                                            target=self.read_file_to_buffer, name="ReadFromFileThread")
+            read_thread.daemon = True
             read_thread.start()
 
             # Thread for prepare_packet_to_send
             prepare_thread = threading.Thread(
                 target=self.prepare_packet_to_send, name="PreparePacketThread")
+            prepare_thread.daemon = True
             prepare_thread.start()
 
             # Thread for send_packet_from_buffer
             send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
                                            target=self.send_packet_from_buffer, name="SendPacketThread")
+            send_thread.daemon = True
             send_thread.start()
 
             # Thread for receive_ack
             receive_thread = threading.Thread(
                 target=self.receive_ack, name="ReceiveAckThread", args=(self.in_ack_socket, self.out_data_socket, self.out_data_addr,))
+            receive_thread.daemon = True
             receive_thread.start()
 
             # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
