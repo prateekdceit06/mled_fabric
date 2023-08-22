@@ -172,8 +172,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 if packet is None or seq_num_of_packet_to_send not in accepted_packets_in_flight:
                     continue
 
-            if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0 and \
-                    len(packet.chunk) >= self.process_config['error_introduction_location']+(2*int(self.process_config['error_detection_method']['parameter'])):
+            if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0:
                 logging.info(pc.PrintColor.print_in_cyan_back(
                     f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
                 new_chunk = super().add_error(packet.chunk, self.process_config['error_introduction_location'],

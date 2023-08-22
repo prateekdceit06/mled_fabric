@@ -8,6 +8,7 @@
   "received_filename": "received_data.csv",
   "pause_time_before_ack": 0.15,
   "hash_method":"md5",
+  "error_introduction_location": 150,
   "layers": [
     {
       "window_size": 5,

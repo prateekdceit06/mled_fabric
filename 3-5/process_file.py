@@ -110,11 +110,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     break
                 header = Header(seq_num, last_packet=last_packet)
                 packet = Packet(header, chunk)
-                logging.info(pc.PrintColor.print_in_cyan_back(
-                    f"Received Data Buffer before adding: {received_data_buffer.print_buffer()}"))
+                # logging.info(pc.PrintColor.print_in_cyan_back(
+                #     f"Received Data Buffer before adding: {received_data_buffer.print_buffer()}"))
                 received_data_buffer.add(packet)
-                logging.info(pc.PrintColor.print_in_blue_back(
-                    f"Received Data Buffer before adding: {received_data_buffer.print_buffer()}"))
+                # logging.info(pc.PrintColor.print_in_blue_back(
+                #     f"Received Data Buffer before adding: {received_data_buffer.print_buffer()}"))
 
                 received_buffer_not_full_condition.notify(2)
                 logging.info(pc.PrintColor.print_in_red_back(
@@ -147,13 +147,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                         f"Writing chunk {packet.header.seq_num} of size {len(packet.chunk)} to file"))
                     file.flush()  # Flush the data to the file
                     last_written_seq_num = packet.header.seq_num
-                    logging.info(pc.PrintColor.print_in_cyan_back(
-                        f"Received Data Buffer before removing: {received_data_buffer.print_buffer()}"))
+                    # logging.info(pc.PrintColor.print_in_cyan_back(
+                    #     f"Received Data Buffer before removing: {received_data_buffer.print_buffer()}"))
 
                     received_data_buffer.remove_by_sequence(
                         last_written_seq_num)
-                    logging.info(pc.PrintColor.print_in_blue_back(
-                        f"Received Data Buffer after removing: {received_data_buffer.print_buffer()}"))
+                    # logging.info(pc.PrintColor.print_in_blue_back(
+                    #     f"Received Data Buffer after removing: {received_data_buffer.print_buffer()}"))
 
                     self.received_buffer_not_full_condition.notify(2)
                     if packet.header.last_packet:

@@ -182,8 +182,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 if packet is None or seq_num_of_packet_to_send not in accepted_packets_in_flight:
                     continue
 
-            if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0 and \
-                    len(packet.chunk) >= self.process_config['error_introduction_location']+(2*int(self.process_config['error_detection_method']['parameter'])):
+            if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0:
                 logging.info(pc.PrintColor.print_in_cyan_back(
                     f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
                 new_chunk = super().add_error(packet.chunk, self.process_config['error_introduction_location'],
@@ -221,12 +220,12 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 with self.sending_buffer_not_full_condition:
 
                     if received_ack_byte == 1:
-                        logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before remove" +
-                                                                       self.sending_data_buffer.print_buffer()))
+                        # logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before remove" +
+                        #                                                self.sending_data_buffer.print_buffer()))
                         packet = self.sending_data_buffer.remove_by_sequence(
                             received_seq_num)
-                        logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after remove" +
-                                                                      self.sending_data_buffer.print_buffer()))
+                        # logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after remove" +
+                        #                                               self.sending_data_buffer.print_buffer()))
                         if packet:
                             logging.info(pc.PrintColor.print_in_yellow_back(
                                 f"Removed packet {packet.seq_num} from sending buffer"))
@@ -242,8 +241,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
                     elif received_ack_byte == 3:
                         self.urgent_send_in_progress = True
-                        logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before sending" +
-                                                                       self.sending_data_buffer.print_buffer()))
+                        # logging.info(pc.PrintColor.print_in_green_back("Sending data buffer before sending" +
+                        #                                                self.sending_data_buffer.print_buffer()))
                         logging.info(pc.PrintColor.print_in_purple_back(
                             f"Urgent sending flag set to true for packet {received_seq_num}"))
                         with self.urgent_send_condition:
@@ -256,8 +255,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             super().send_data(out_data_socket, packet)
                             logging.info(pc.PrintColor.print_in_purple_back(
                                 f"Re-sent packet {received_seq_num} of size {len(packet.chunk)} to {received_src}"))
-                            logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after sending" +
-                                                                          self.sending_data_buffer.print_buffer()))
+                            # logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after sending" +
+                            #                                               self.sending_data_buffer.print_buffer()))
                             self.urgent_send_in_progress = False
                             self.urgent_send_condition.notify()
             else:

@@ -6,12 +6,12 @@
   "delay_process_socket" : 10,
   "filename":"astroMLDataTest.csv",
   "received_filename": "received_data.csv",
-  "pause_time_before_ack": 0.2,
+  "pause_time_before_ack": 0.3,
   "hash_method":"md5",
   "error_introduction_location": 150,
   "layers": [
     {
-      "window_size": 5,
+      "window_size": 10,
       "layer_mtu": 500,
       "layer_id": 1,
       "error_model": {
@@ -21,8 +21,8 @@
         "error_probability_bad": 0.1
       },
       "error_detection_method": {
-        "method": "checksum",
-        "parameter": "2"
+        "method": "crc",
+        "parameter": "0x07"
       },
       "processes": [
         {
@@ -67,7 +67,7 @@
           "right_neighbor": "1-5",
           "left_neighbor": "1-3",
           "process_type": "E",
-          "packet_error_rate":0.01
+          "packet_error_rate":0.0
         },
         {
           "ip": "10.0.0.105",
@@ -82,7 +82,7 @@
       ]
     },
     {
-      "window_size": 5,
+      "window_size": 10,
       "layer_mtu": 1000,
       "layer_id": 2,
       "error_model": {
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "window_size": 5,
+      "window_size": 10,
       "layer_mtu": 2000,
       "layer_id": 3,
       "error_model": {

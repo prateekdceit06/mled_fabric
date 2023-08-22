@@ -91,24 +91,49 @@ class SendReceive:
 
     def add_error(self, data, error_introduction_location, method, parameter):
 
+        new_data = data
+
         if method == "checksum":
             parameter = int(parameter)
 
-            # Check if the checksum length is valid
-            if parameter <= 0 or parameter > len(data):
-                raise ValueError("Invalid checksum length")
+            if len(data) >= error_introduction_location+1+(2*parameter):
 
-            error_introduction_location = error_introduction_location - \
-                (error_introduction_location % parameter)
+                # Check if the checksum length is valid
+                if parameter <= 0 or parameter > len(data):
+                    raise ValueError("Invalid checksum length")
 
-            data_to_change = data[error_introduction_location +
-                                  1:error_introduction_location+1+(2*parameter)]
+                error_introduction_location = error_introduction_location - \
+                    (error_introduction_location % parameter)
 
-            changed_data = data_to_change[parameter:] + \
-                data_to_change[:parameter]
+                data_to_change = data[error_introduction_location +
+                                      1:error_introduction_location+1+(2*parameter)]
 
-            new_data = data[:error_introduction_location+1] + \
-                changed_data + \
-                data[error_introduction_location+1+(2*parameter):]
+                changed_data = data_to_change[parameter:] + \
+                    data_to_change[:parameter]
 
-            return new_data
+                new_data = data[:error_introduction_location+1] + \
+                    changed_data + \
+                    data[error_introduction_location+1+(2*parameter):]
+
+        elif method == "crc":
+
+            crc_polynomial_hex = parameter[2:]
+            error_pattern = bytes.fromhex(crc_polynomial_hex)
+            parameter_length = len(error_pattern)
+
+            if len(data) >= error_introduction_location+1+parameter_length:
+
+                error_introduction_location = error_introduction_location - \
+                    (error_introduction_location % parameter_length)
+
+                data_to_change = data[error_introduction_location +
+                                      1:error_introduction_location+1+parameter_length]
+
+                changed_data = bytes([data_to_change[i] ^ error_pattern[i]
+                                      for i in range(parameter_length)])
+
+                new_data = data[:error_introduction_location+1] + \
+                    changed_data + \
+                    data[error_introduction_location+1+parameter_length:]
+
+        return new_data
