@@ -330,14 +330,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 if packet is None or seq_num_of_packet_to_send not in accepted_packets_in_flight:
                     continue
 
-            if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0:
-                logging.info(pc.PrintColor.print_in_cyan_back(
-                    f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
-                new_chunk = super().add_error(packet.chunk, self.process_config['error_introduction_location'],
-                                              self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
-                new_packet = Packet(packet.header, new_chunk)
-                packet = new_packet
-            packet_number += 1
+            if out_socket == self.out_data_socket_down:
+                if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0:
+                    logging.info(pc.PrintColor.print_in_cyan_back(
+                        f"Packet {packet.seq_num} of size {packet.header.size_of_data + packet.header.get_size()} is corrupted"))
+                    new_chunk = super().add_error(packet.chunk, self.process_config['error_introduction_location'],
+                                                  self.process_config['error_detection_method']['method'], self.process_config['error_detection_method']['parameter'])
+                    new_packet = Packet(packet.header, new_chunk)
+                    packet = new_packet
+                packet_number += 1
 
             with self.urgent_send_condition:
                 super().send_data(out_socket, packet)
