@@ -46,7 +46,8 @@ class Server:
         if addr[0] in client_ips:
             logging.info(f"Connected with {addr[0]}")
             connected_clients.add(addr[0])
-            master_config_path = os.path.join(self.path, master_config_file)
+            master_config_path = os.path.join(
+                self.path, 'config', master_config_file)
             ip_list_config_path = os.path.join(self.path, 'ip_list.json')
             send_file_to_client(client_socket, ip_list_config_path)
             send_file_to_client(client_socket, master_config_path)
@@ -55,14 +56,14 @@ class Server:
         else:
             client_socket.close()
 
-    def start_server(self, terminate_event, ip_list):
+    def start_server(self, terminate_event, ip_list, master_config_file):
 
         server_ip = ip_list['server_ip']
         server_port = ip_list['server_port']
         connections = ip_list['connections_manager_process']
         timeout = ip_list['timeout_manager_process']
         client_ips = [client["ip"] for client in ip_list["clients"]]
-        master_config_file = ip_list['master_config_file']
+        
 
         server_socket = utils.create_server_socket(
             server_ip, server_port, "manager", connections, timeout)
