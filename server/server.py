@@ -27,6 +27,21 @@ class Server:
         self.path = directory
         self.open_sockets = set()
         self.sockets_lock = threading.Lock()
+        self.interrupt = False
+
+    def keyboard_interrupt_handler(self, terminate_event):
+        while not terminate_event.is_set():
+            time.sleep(5)
+        self.interrupt = True
+        with self.sockets_lock:
+            for client_socket in list(self.open_sockets):
+                client_socket.sendall(("INTR").encode('utf-8'))
+            time.sleep(10)
+            for client_socket in list(self.open_sockets):
+                self.open_sockets.remove(client_socket)
+                client_socket.close()
+
+        logging.info("Terminating server")
 
     def handle_client(self, server_socket, client_socket, addr, connected_clients, client_ips):
         process_type = client_socket.recv(2)
@@ -50,9 +65,10 @@ class Server:
                 with self.sockets_lock:
                     time.sleep(10)
                     for client_socket in list(self.open_sockets):
-                        # client_socket.sendall(("DONE").encode('utf-8'))
+                        client_socket.sendall(("DONE").encode('utf-8'))
                         self.open_sockets.remove(client_socket)
                         client_socket.close()
+                    self.interrupt = True
 
         # with lock:
         #     if connected_clients == client_ips:
@@ -77,7 +93,7 @@ class Server:
             client_socket.close()
 
     def start_server(self, terminate_event, ip_list, master_config_file):
-
+        self.interrupt = False
         server_ip = ip_list['server_ip']
         server_port = ip_list['server_port']
         connections = ip_list['connections_manager_process']
@@ -87,6 +103,10 @@ class Server:
         server_socket = utils.create_server_socket(
             server_ip, server_port, "manager", connections, timeout)
         connected_clients = set()
+
+        keyboard_interrupt_thread = threading.Thread(
+            target=self.keyboard_interrupt_handler, name="KeyboardInterruptThread", args=(terminate_event,))
+        keyboard_interrupt_thread.start()
 
         try:
             while True:
@@ -102,18 +122,10 @@ class Server:
                                                            client_ips, connected_clients, master_config_file,))
                     client_thread.start()
                 except socket.timeout:
-
-                    if terminate_event.is_set():
-                        logging.info("Terminating server")
+                    if self.interrupt:
                         break
-
-                    with self.sockets_lock:
-                        if not self.open_sockets:
-                            logging.info(
-                                "All clients served. Closing server socket")
-                            break
-                        else:
-                            continue
+                    else:
+                        continue
                 except socket.error as e:
                     if e.errno == 9:  # Bad file descriptor
                         with lock:

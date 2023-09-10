@@ -33,6 +33,7 @@ if __name__ == "__main__":
 
     while (flag):
         try:
+            terminate_event.clear()
             all_items = os.listdir(config_path)
             files_only = [item for item in all_items if os.path.isfile(
                 os.path.join(config_path, item))]
@@ -83,6 +84,7 @@ if __name__ == "__main__":
             server_thread.daemon = True
             server_thread.start()
             server_thread.join()
+            logging.info("Server Ended.")
         except:
             flag = False
             print("Something went wrong...")

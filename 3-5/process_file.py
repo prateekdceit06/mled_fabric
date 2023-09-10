@@ -40,6 +40,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         self.expected_hash = None
 
+    def manager_client(self, client_socket, out_ack_socket):
+        control_msg = client_socket.recv(4).decode('utf-8')
+        logging.info(
+            f"Received {control_msg} from manager.")
+        if control_msg == "INTR":
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Sending DONE ack to other processes."))
+            self.send_ack(0, (self.process_config['name']).encode('utf-8'),
+                          (self.process_config['left_neighbor'].encode('utf-8')), 5, out_ack_socket)
+
     def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         seq_num = -1
 
@@ -142,14 +152,20 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def write_to_file(self, file_path, received_data_buffer, expected_hash, hash_method, client_socket, out_ack_socket):
         last_written_seq_num = -1
+        interrupt = False
         with open(file_path, 'wb') as file:
             while True:
-                while received_data_buffer.is_empty():
+                if self.terminate_event.is_set():
+                    logging.info(pc.PrintColor.print_in_red_back(
+                        f"Received interrupt signal."))
+                    interrupt = True
+                    break
+                while received_data_buffer.is_empty() and not self.terminate_event.is_set():
                     # Wait until there's data in the buffer
                     logging.info(pc.PrintColor.print_in_blue_back(
                         f"No data in receiving buffer"))
                     with self.received_buffer_not_full_condition:
-                        self.received_buffer_not_full_condition.wait()
+                        self.received_buffer_not_full_condition.wait(5)
                     logging.info(pc.PrintColor.print_in_blue_back(
                         f"Received notification that there is data in receiving buffer"))
 
@@ -177,24 +193,24 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     self.received_buffer_not_full_condition.notify(2)
                     if packet.header.last_packet:
                         break
-        logging.info(pc.PrintColor.print_in_green_back("File Received."))
-        is_file_verified = self.verify_file_hash(
-            file_path, expected_hash, hash_method)
-        if not is_file_verified:
+
+        if not interrupt:
+            logging.info(pc.PrintColor.print_in_green_back("File Received."))
+            is_file_verified = self.verify_file_hash(
+                file_path, expected_hash, hash_method)
+            if not is_file_verified:
+                logging.info(pc.PrintColor.print_in_red_back(
+                    f"File is corrupted"))
+            else:
+                logging.info(pc.PrintColor.print_in_green_back(
+                    f"File is verified successfully"))
             logging.info(pc.PrintColor.print_in_red_back(
-                f"File is corrupted"))
-        else:
-            logging.info(pc.PrintColor.print_in_green_back(
-                f"File is verified successfully"))
-        logging.info(pc.PrintColor.print_in_red_back(
-            "Sending DONE signal."))
-        client_socket.sendall(("DONE").encode("utf-8"))
-        self.send_ack(0, (self.process_config['name']).encode('utf-8'),
-                      (self.process_config['left_neighbor'].encode('utf-8')), 5, out_ack_socket)
-        # control_msg = client_socket.recv(4).decode('utf-8')
-        # time.sleep(10)
-        # logging.info(
-        #     f"Received {control_msg} from manager.")
+                "Sending DONE signal to manager process."))
+            client_socket.sendall(("DONE").encode("utf-8"))
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Sending DONE ack to other processes."))
+            self.send_ack(0, (self.process_config['name']).encode('utf-8'),
+                          (self.process_config['left_neighbor'].encode('utf-8')), 5, out_ack_socket)
 
     def send_ack(self, seq_num, src, dest, type, out_ack_socket):
         time.sleep(self.process_config['pause_time_before_ack'])
@@ -288,6 +304,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             received_filename = self.process_config['received_filename']
             file_path = os.path.join(directory, received_filename)
 
+            manager_client_thread = threading.Thread(
+                args=(client_socket, self.out_ack_socket,), target=self.manager_client, name="ManagerlientThread")
+            manager_client_thread.daemon = True
+            manager_client_thread.start()
+
             write_thread = threading.Thread(args=(file_path, self.received_data_buffer, self.expected_hash, self.process_config['hash_method'], client_socket, self.out_ack_socket,),
                                             target=self.write_to_file, name="WriteToFileThread")
             write_thread.start()
@@ -296,6 +317,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                     self.received_buffer_not_full_condition, self.received_data_buffer,),
                                               target=self.receive_data, name="ReceiveDataThread")
             receive_thread.start()
+
+            manager_client_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Manager client thread ended execution"))
 
             write_thread.join()
             logging.info(pc.PrintColor.print_in_green_back(

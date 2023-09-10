@@ -64,10 +64,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def manager_client(self, client_socket):
         control_msg = client_socket.recv(4).decode('utf-8')
-        time.sleep(10)
+        # time.sleep(10)
         logging.info(
             f"Received {control_msg} from manager.")
-        self.terminate_event.set()
+        # self.terminate_event.set()
 
     def read_file_to_buffer(self, file_path):
 
@@ -371,10 +371,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         if is_correct:
 
-            # manager_client_thread = threading.Thread(
-            #     args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
-            # manager_client_thread.daemon = True
-            # manager_client_thread.start()
+            manager_client_thread = threading.Thread(
+                args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
+            manager_client_thread.daemon = True
+            manager_client_thread.start()
 
             self.file_transfer_start_time = time.time()
 
@@ -401,11 +401,21 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             receive_thread.daemon = True
             receive_thread.start()
 
-            # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
+            manager_client_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Manager client thread ended execution"))
             read_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Read thread ended execution."))
             prepare_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Prepare thread ended execution."))
             send_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Send thread ended execution."))
             receive_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Receive thread ended execution."))
 
             done_msg = ("DONE").encode('utf-8')
 
@@ -422,7 +432,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             header = Header(seq_num, src, dest, check_value,
                             size_of_chunk, 0, errors, last_packet)
             packet = Packet(header, done_msg)
+
+            self.urgent_send_in_progress = True
+            # with self.urgent_send_condition:
             super().send_data(self.out_data_socket, packet)
+            # self.urgent_send_in_progress = False
+            # self.urgent_send_condition.notify()
+
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Sending DONE."))
 
             time.sleep(10)
 

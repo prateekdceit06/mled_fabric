@@ -94,11 +94,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         self.last_seq_num = -1
         self.last_packet_acked = -1
 
+        self.interrupt = False
+
     def manager_client(self, client_socket):
         control_msg = client_socket.recv(4).decode('utf-8')
-        time.sleep(10)
+        # time.sleep(10)
         logging.info(
             f"Received {control_msg} from manager.")
+        if control_msg == "INTR":
+            self.terminate_event.set()
+            self.interrupt = True
 
     def receive_data(self, in_socket, out_ack_socket, received_buffer_not_full_condition, received_data_buffer):
         # seq_num = -1
@@ -225,13 +230,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             chunk = data_to_forward[i:i+self.chunk_size]
 
             with received_buffer_not_full_condition:
-                while received_data_buffer.is_full():
+                while received_data_buffer.is_full() and not self.interrupt:
                     # Wait until there's space in the buffer
                     logging.info(pc.PrintColor.print_in_blue_back(
                         f"No space in Receiveing buffer"))
-                    received_buffer_not_full_condition.wait()
+                    received_buffer_not_full_condition.wait(5)
                     logging.info(pc.PrintColor.print_in_blue_back(
                         f"Received notification that there is space in Receiving buffer"))
+
+                if self.interrupt:
+                    break
 
                 if not chunk:
                     break
@@ -621,10 +629,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             if self.process_config['parent'] is None:
 
-                # manager_client_thread = threading.Thread(
-                #     args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
-                # manager_client_thread.daemon = True
-                # manager_client_thread.start()
+                manager_client_thread = threading.Thread(
+                    args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
+                manager_client_thread.daemon = True
+                manager_client_thread.start()
 
                 receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.out_ack_socket_down,
                                                                   self.received_down_buffer_not_full_condition,
@@ -656,6 +664,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 # send_ack_thread = threading.Thread(args=(self.out_ack_socket_down,),
                 #                                    target=self.receive_ack, name="SendAckThread")
                 # send_ack_thread.start()
+
+                manager_client_thread.join()
+                logging.info(pc.PrintColor.print_in_red_back(
+                    "Manager client thread ended execution"))
 
                 receive_down_data_thread.join()
                 logging.info(pc.PrintColor.print_in_red_back(
@@ -692,6 +704,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                 size_of_chunk, 0, errors, last_packet)
                 packet = Packet(header, done_msg)
                 super().send_data(self.out_data_socket_down, packet)
+                logging.info(pc.PrintColor.print_in_red_back(
+                    "Sending DONE."))
 
                 time.sleep(10)
 
@@ -700,10 +714,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             else:
 
-                # manager_client_thread = threading.Thread(
-                #     args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
-                # manager_client_thread.daemon = True
-                # manager_client_thread.start()
+                manager_client_thread = threading.Thread(
+                    args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
+                manager_client_thread.daemon = True
+                manager_client_thread.start()
 
                 receive_down_data_thread = threading.Thread(args=(self.in_data_socket_down, self.out_ack_socket_down,
                                                                   self.received_down_buffer_not_full_condition,
@@ -753,6 +767,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                          target=self.receive_ack, name="ReceiveAckUpThread")
                 receive_ack_up_thread.start()
 
+                manager_client_thread.join()
+                logging.info(pc.PrintColor.print_in_red_back(
+                    "Manager client thread ended execution"))
+
                 receive_down_data_thread.join()
                 logging.info(pc.PrintColor.print_in_red_back(
                     "Receive down data thread ended execution"))
@@ -783,9 +801,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                 size_of_chunk, 0, errors, last_packet)
                 packet = Packet(header, done_msg)
                 super().send_data(self.out_data_socket_up, packet)
+                logging.info(pc.PrintColor.print_in_red_back(
+                    "Sending DONE."))
 
                 receive_up_data_thread.join()
-
                 logging.info(pc.PrintColor.print_in_red_back(
                     "Receive up data thread ended execution"))
                 prepare_down_thread.join()
@@ -814,6 +833,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                 size_of_chunk, 0, errors, last_packet)
                 packet = Packet(header, done_msg)
                 super().send_data(self.out_data_socket_down, packet)
+                logging.info(pc.PrintColor.print_in_red_back(
+                    "Sending DONE."))
 
                 time.sleep(10)
 

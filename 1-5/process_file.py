@@ -56,7 +56,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def manager_client(self, client_socket):
         control_msg = client_socket.recv(4).decode('utf-8')
-        time.sleep(10)
+        # time.sleep(10)
         logging.info(
             f"Received {control_msg} from manager.")
 
@@ -429,10 +429,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         if is_correct:
 
-            # manager_client_thread = threading.Thread(
-            #     args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
-            # manager_client_thread.daemon = True
-            # manager_client_thread.start()
+            manager_client_thread = threading.Thread(
+                args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
+            manager_client_thread.daemon = True
+            manager_client_thread.start()
 
             receive_data_thread = threading.Thread(args=(self.in_data_socket, self.out_ack_socket, self.received_buffer_not_full_condition, self.received_data_buffer,),
                                                    target=self.receive_data, name="ReceiveDataThread")
@@ -455,7 +455,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                                   target=self.receive_ack, name="ReceiveAckThread")
             receive_ack_thread.start()
 
-            # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
+            manager_client_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Manager client thread ended execution"))
             receive_data_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
                 "Receive data thread ended execution"))
@@ -485,6 +487,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             size_of_chunk, 0, errors, last_packet)
             packet = Packet(header, done_msg)
             super().send_data(self.out_data_socket, packet)
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Sending DONE."))
 
             time.sleep(10)
 

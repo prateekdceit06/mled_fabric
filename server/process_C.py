@@ -57,13 +57,17 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         self.last_packet_acked = -1
 
+        self.interrupt = False
+
     def manager_client(self, client_socket):
         control_msg = client_socket.recv(4).decode('utf-8')
-        time.sleep(10)
+        # time.sleep(10)
         logging.info(
             f"Received {control_msg} from manager.")
-        if control_msg == "DONE":
+
+        if control_msg == "INTR":
             self.terminate_event.set()
+            self.interrupt = True
 
     def receive_data(self, in_socket):
         seq_num = -1
@@ -91,13 +95,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 seq_num %= (2*self.process_config['window_size'])
 
                 with self.received_buffer_not_full_condition:
-                    while self.received_data_buffer.is_full():
+                    while self.received_data_buffer.is_full() and not self.interrupt:
                         # Wait until there's space in the buffer
                         logging.info(pc.PrintColor.print_in_blue_back(
                             f"No space in Receiving buffer"))
-                        self.received_buffer_not_full_condition.wait()
+                        self.received_buffer_not_full_condition.wait(5)
                         logging.info(pc.PrintColor.print_in_blue_back(
                             f"Received notification that there is space in Receiving buffer"))
+
+                    if self.interrupt:
+                        break
 
                     if not chunk:
                         break
@@ -110,6 +117,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     logging.info(pc.PrintColor.print_in_red_back(
                         f"Received chunk {seq_num} of size {len(chunk)} to buffer"))
                     # logging.info(f"CHUNK: {chunk}")
+            if self.interrupt:
+                break
 
     def prepare_packet_to_send(self):
         # seq_num = -1
@@ -366,10 +375,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         if is_correct:
 
-            # manager_client_thread = threading.Thread(
-            #     args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
-            # manager_client_thread.daemon = True
-            # manager_client_thread.start()
+            manager_client_thread = threading.Thread(
+                args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
+            manager_client_thread.daemon = True
+            manager_client_thread.start()
 
             receive_data_thread = threading.Thread(args=(self.in_data_socket,),
                                                    target=self.receive_data, name="ReceiveDataThread")
@@ -389,6 +398,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             receive_ack_thread = threading.Thread(args=(self.in_ack_socket, self.out_data_socket, self.out_ack_socket, self.out_data_addr,),
                                                   target=self.receive_ack, name="ReceiveAckThread")
             receive_ack_thread.start()
+
+            manager_client_thread.join()
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Manager client thread ended execution"))
 
             receive_data_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
@@ -419,6 +432,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             size_of_chunk, 0, errors, last_packet)
             packet = Packet(header, done_msg)
             super().send_data(self.out_data_socket, packet)
+            logging.info(pc.PrintColor.print_in_red_back(
+                "Sending DONE."))
 
             time.sleep(10)
 
