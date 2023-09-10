@@ -2,8 +2,8 @@
     "server_ip": "10.0.0.100",
     "server_port": 50000,
     "connections_manager_process": 10,
-    "timeout_manager_process": 10,
-    "master_config_file": "master_config.json",
+    "timeout_manager_process": 30,
+    "master_config_file": "master_config_traditional.json",
     "clients": [
         {
             "name": "1-1",

@@ -58,12 +58,12 @@ class ConfigClient:
         self.get_process_file(client_socket, char_to_send)
 
         # Close the connection
-        try:
-            client_socket.close()
-        except socket.error as e:
-            logging.error(f"Error closing socket: {e}")
-            sys.exit(1)
-        return process_config
+        # try:
+        #     client_socket.close()
+        # except socket.error as e:
+        #     logging.error(f"Error closing socket: {e}")
+        #     sys.exit(1)
+        return process_config, client_socket
 
     def get_master_config(self, client_socket, master_config_file_name):
         master_config_file_path = os.path.join(

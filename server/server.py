@@ -5,6 +5,7 @@ import sys
 import threading
 import logging
 import os
+import time
 
 lock = threading.Lock()
 logging.basicConfig(format=utils.logging_format, level=logging.INFO)
@@ -24,6 +25,8 @@ class Server:
 
     def __init__(self, directory):
         self.path = directory
+        self.open_sockets = set()
+        self.sockets_lock = threading.Lock()
 
     def handle_client(self, server_socket, client_socket, addr, connected_clients, client_ips):
         process_type = client_socket.recv(2)
@@ -37,6 +40,20 @@ class Server:
         utils.create_tarfile(process_tarfile_path, routing_file)
         logging.info(f"Created tar file {tar_name}")
         send_file_to_client(client_socket, process_tarfile_path)
+
+        if received_char == "B":
+            control_msg = client_socket.recv(4).decode('utf-8')
+            logging.info(
+                f"Received {control_msg} from client {addr[0]}")
+
+            if control_msg == "DONE":
+                with self.sockets_lock:
+                    time.sleep(10)
+                    for client_socket in list(self.open_sockets):
+                        # client_socket.sendall(("KILL").encode('utf-8'))
+                        self.open_sockets.remove(client_socket)
+                        client_socket.close()
+
         # with lock:
         #     if connected_clients == client_ips:
         #         logging.info("All clients connected. Closing server socket")
@@ -53,7 +70,10 @@ class Server:
             send_file_to_client(client_socket, master_config_path)
             self.handle_client(server_socket, client_socket,
                                addr, connected_clients, client_ips)
+
         else:
+            with self.sockets_lock:
+                self.open_sockets.remove(client_socket)
             client_socket.close()
 
     def start_server(self, terminate_event, ip_list, master_config_file):
@@ -63,7 +83,6 @@ class Server:
         connections = ip_list['connections_manager_process']
         timeout = ip_list['timeout_manager_process']
         client_ips = [client["ip"] for client in ip_list["clients"]]
-        
 
         server_socket = utils.create_server_socket(
             server_ip, server_port, "manager", connections, timeout)
@@ -74,6 +93,10 @@ class Server:
                 try:
                     client_socket, addr = server_socket.accept()
                     logging.info(f"Accepted connection from {addr[0]}")
+
+                    with self.sockets_lock:
+                        self.open_sockets.add(client_socket)
+
                     client_thread = threading.Thread(target=self.client_handler, name="ClientHandlerThread",
                                                      args=(server_socket, client_socket, addr,
                                                            client_ips, connected_clients, master_config_file,))
@@ -84,12 +107,13 @@ class Server:
                         logging.info("Terminating server")
                         break
 
-                    # with lock:
-                    #     if connected_clients == client_ips:
-                    #         logging.info("All clients served. Closing server socket (Timeout)")
-                    #         break
-                    #     else:
-                    #         continue
+                    with self.sockets_lock:
+                        if not self.open_sockets:
+                            logging.info(
+                                "All clients served. Closing server socket")
+                            break
+                        else:
+                            continue
                 except socket.error as e:
                     if e.errno == 9:  # Bad file descriptor
                         with lock:

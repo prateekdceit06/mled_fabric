@@ -62,19 +62,26 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         self.last_packet_acked = -1
 
+    def manager_client(self, client_socket):
+        control_msg = client_socket.recv(4).decode('utf-8')
+        time.sleep(10)
+        logging.info(
+            f"Received {control_msg} from manager.")
+        self.terminate_event.set()
+
     def read_file_to_buffer(self, file_path):
 
         with open(file_path, 'rb') as f:
             seq_num = -1
-            while True:
+            while not self.terminate_event.is_set():
                 seq_num += 1
                 seq_num %= (2*self.process_config['window_size'])
                 with self.received_buffer_not_full_condition:
-                    while self.received_data_buffer.is_full():
+                    while self.received_data_buffer.is_full() and not self.terminate_event.is_set():
                         # Wait until there's space in the buffer
                         logging.info(pc.PrintColor.print_in_blue_back(
                             f"No space in Receiving buffer"))
-                        self.received_buffer_not_full_condition.wait()
+                        self.received_buffer_not_full_condition.wait(5)
                         logging.info(pc.PrintColor.print_in_blue_back(
                             f"Received notification that there is space in Receiving buffer"))
 
@@ -92,65 +99,69 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def prepare_packet_to_send(self):
         seq_num = -1
-        while True:
-            while self.received_data_buffer.is_empty():
+        while not self.terminate_event.is_set():
+            while self.received_data_buffer.is_empty() and not self.terminate_event.is_set():
                 # Wait until there's data in the buffer
                 logging.info(pc.PrintColor.print_in_blue_back(
                     f"No data in receiving buffer"))
                 with self.received_buffer_not_full_condition:
-                    self.received_buffer_not_full_condition.wait()
+                    self.received_buffer_not_full_condition.wait(5)
                 logging.info(pc.PrintColor.print_in_blue_back(
                     f"Received notification that there is data in receiving buffer"))
 
-            chunk = None
-            with self.received_buffer_not_full_condition:
-                chunk = self.received_data_buffer.get()
-                self.received_data_buffer.remove()
-                # Notify read_file_to_buffer that there's space now
-                self.received_buffer_not_full_condition.notify(2)
+            if not self.terminate_event.is_set():
 
-            if chunk:
-                size_of_chunk = len(chunk)
-                seq_num += 1
-                seq_num %= (2*self.process_config['window_size'])
-                src = self.process_config['name']
-                dest = self.process_config['right_neighbor']
-                error_detection_method = self.process_config['error_detection_method']['method']
-                parameter = self.process_config['error_detection_method']['parameter']
-                check_value = super().get_value_to_check(
-                    chunk, error_detection_method, parameter)
-                errors = []
-                if size_of_chunk < self.chunk_size:
-                    last_packet = True
-                else:
-                    last_packet = False
-                header = Header(seq_num, src, dest, check_value,
-                                size_of_chunk, 0, errors, last_packet)
-                packet = Packet(header, chunk)
+                chunk = None
+                with self.received_buffer_not_full_condition:
+                    chunk = self.received_data_buffer.get()
+                    self.received_data_buffer.remove()
+                    # Notify read_file_to_buffer that there's space now
+                    self.received_buffer_not_full_condition.notify(2)
 
-                with self.sending_buffer_not_full_condition:  # Use the condition for the sending buffer
-                    while self.sending_data_buffer.is_full():  # Wait if the sending buffer is full
+                if chunk:
+                    size_of_chunk = len(chunk)
+                    seq_num += 1
+                    seq_num %= (2*self.process_config['window_size'])
+                    src = self.process_config['name']
+                    dest = self.process_config['right_neighbor']
+                    error_detection_method = self.process_config['error_detection_method']['method']
+                    parameter = self.process_config['error_detection_method']['parameter']
+                    check_value = super().get_value_to_check(
+                        chunk, error_detection_method, parameter)
+                    errors = []
+                    if size_of_chunk < self.chunk_size:
+                        last_packet = True
+                    else:
+                        last_packet = False
+                    header = Header(seq_num, src, dest, check_value,
+                                    size_of_chunk, 0, errors, last_packet)
+                    packet = Packet(header, chunk)
+
+                    # Use the condition for the sending buffer
+                    with self.sending_buffer_not_full_condition:
+                        # Wait if the sending buffer is full
+                        while self.sending_data_buffer.is_full() and not self.terminate_event.is_set():
+                            logging.info(pc.PrintColor.print_in_yellow_back(
+                                f"No space in sending buffer"))
+                            self.sending_buffer_not_full_condition.wait(5)
+                            logging.info(pc.PrintColor.print_in_yellow_back(
+                                f"Received Notification that there is space in sending buffer"))
+
+                    with self.sending_data_buffer_lock:
+                        self.sending_data_buffer.add(packet)
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
+                        self.sending_data_buffer_condition.notify()
                         logging.info(pc.PrintColor.print_in_yellow_back(
-                            f"No space in sending buffer"))
-                        self.sending_buffer_not_full_condition.wait()
-                        logging.info(pc.PrintColor.print_in_yellow_back(
-                            f"Received Notification that there is space in sending buffer"))
-
-                with self.sending_data_buffer_lock:
-                    self.sending_data_buffer.add(packet)
-                    logging.info(pc.PrintColor.print_in_green_back(
-                        f"Added packet {seq_num} of size {size_of_chunk} to sending buffer"))
-                    self.sending_data_buffer_condition.notify()
-                    logging.info(pc.PrintColor.print_in_yellow_back(
-                        f"Send Notification that there is a packet to send in sending buffer"))
+                            f"Send Notification that there is a packet to send in sending buffer"))
 
     def send_packet_from_buffer(self, out_socket, out_addr):
         last_sent_seq_num = -1  # Initialize to an invalid sequence number
         packet_number = 0
 
-        while True:
+        while not self.terminate_event.is_set():
             with self.sending_data_buffer_condition:
-                while self.sending_data_buffer.is_empty():
+                while self.sending_data_buffer.is_empty() and not self.terminate_event.is_set():
 
                     self.file_transfer_end_time = time.time()
                     file_transfer_time = self.file_transfer_end_time - self.file_transfer_start_time
@@ -159,7 +170,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     logging.info(pc.PrintColor.print_in_blue_back(
                         "No packet to send in sending buffer"))
 
-                    self.sending_data_buffer_condition.wait()
+                    self.sending_data_buffer_condition.wait(5)
                     logging.info(pc.PrintColor.print_in_blue_back(
                         "Received notification that there is a packet to send in sending buffer or urgent packet sent successfully."))
 
@@ -202,7 +213,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             received_seq_num, received_src, received_dest, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
             ).receive_data(in_ack_socket)
 
-            ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "UNKNOWN"
+            if received_ack_byte == 5:
+                logging.info(pc.PrintColor.print_in_red_back(
+                    f"Received DONE signal ({received_ack_byte})"))
+                self.terminate_event.set()
+                break
+
+            ack_string = "ACK" if received_ack_byte == 1 else "NACK" if received_ack_byte == 3 else "CLOSE"
             logging.info(pc.PrintColor.print_in_purple_back(
                 f"Received {ack_string} for packet {received_seq_num} addressed to {received_dest} from {received_src}"))
 
@@ -323,7 +340,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 "Setup Unsuccessful"))
             return False
 
-    def create_out_sockets(self, connections, timeout, ip):
+    def create_out_sockets(self, connections, timeout, ip, client_socket):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
 
@@ -354,25 +371,34 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         if is_correct:
 
+            # manager_client_thread = threading.Thread(
+            #     args=(client_socket,), target=self.manager_client, name="ManagerlientThread")
+            # manager_client_thread.daemon = True
+            # manager_client_thread.start()
+
             self.file_transfer_start_time = time.time()
 
             read_thread = threading.Thread(args=(file_path,),
                                            target=self.read_file_to_buffer, name="ReadFromFileThread")
+            read_thread.daemon = True
             read_thread.start()
 
             # Thread for prepare_packet_to_send
             prepare_thread = threading.Thread(
                 target=self.prepare_packet_to_send, name="PreparePacketThread")
+            prepare_thread.daemon = True
             prepare_thread.start()
 
             # Thread for send_packet_from_buffer
             send_thread = threading.Thread(args=(self.out_data_socket, self.out_data_addr,),
                                            target=self.send_packet_from_buffer, name="SendPacketThread")
+            send_thread.daemon = True
             send_thread.start()
 
             # Thread for receive_ack
             receive_thread = threading.Thread(
                 target=self.receive_ack, name="ReceiveAckThread", args=(self.in_ack_socket, self.out_data_socket, self.out_data_addr,))
+            receive_thread.daemon = True
             receive_thread.start()
 
             # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
@@ -380,5 +406,27 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             prepare_thread.join()
             send_thread.join()
             receive_thread.join()
+
+            done_msg = ("DONE").encode('utf-8')
+
+            size_of_chunk = len(done_msg)
+            seq_num = 0
+            src = self.process_config['name']
+            dest = self.process_config['right_neighbor']
+            error_detection_method = self.process_config['error_detection_method']['method']
+            parameter = self.process_config['error_detection_method']['parameter']
+            check_value = super().get_value_to_check(
+                done_msg, error_detection_method, parameter)
+            errors = []
+            last_packet = True
+            header = Header(seq_num, src, dest, check_value,
+                            size_of_chunk, 0, errors, last_packet)
+            packet = Packet(header, done_msg)
+            super().send_data(self.out_data_socket, packet)
+
+            time.sleep(10)
+
+            for sock in self.socket_list:
+                getattr(self, sock).close()
         else:
             sys.exit(1)

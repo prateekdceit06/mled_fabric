@@ -46,6 +46,14 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         while True:
             data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data = self.receive_packets(
                 in_socket, out_ack_socket)
+
+            try:
+                if data_to_forward.decode('utf-8') == 'DONE':
+                    self.terminate_event.set()
+                    break
+            except:
+                pass
+
             logging.info(pc.PrintColor.print_in_black_back(
                 f"Received chunk of size {len(data_to_forward)}"))
 
@@ -58,6 +66,13 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         while True:
             received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data, received_last_packet = super().receive_data(in_socket)
             packet_to_ack.append(received_seq_num)
+
+            try:
+                if received_chunk_data.decode() == 'DONE':
+                    return received_chunk_data, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data
+            except:
+                pass
+
             data_to_forward += received_chunk_data
             logging.info(pc.PrintColor.print_in_yellow_back(
                 f"Sending positive ACK for seq_num: {received_seq_num} to {(self.process_config['child']).encode()} from {(self.process_config['name']).encode()}"))
@@ -121,7 +136,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     f"Received chunk {seq_num} of size {len(chunk)} to buffer"))
             # seq_num += 1
 
-    def write_to_file(self, file_path, received_data_buffer, expected_hash, hash_method):
+    def write_to_file(self, file_path, received_data_buffer, expected_hash, hash_method, client_socket, out_ack_socket):
         last_written_seq_num = -1
         with open(file_path, 'wb') as file:
             while True:
@@ -167,6 +182,14 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         else:
             logging.info(pc.PrintColor.print_in_green_back(
                 f"File is verified successfully"))
+
+        client_socket.sendall(("DONE").encode("utf-8"))
+        self.send_ack(0, (self.process_config['name']).encode('utf-8'),
+                      (self.process_config['left_neighbor'].encode('utf-8')), 5, out_ack_socket)
+        control_msg = client_socket.recv(4).decode('utf-8')
+        time.sleep(10)
+        logging.info(
+            f"Received {control_msg} from manager.")
 
     def send_ack(self, seq_num, src, dest, type, out_ack_socket):
         time.sleep(self.process_config['pause_time_before_ack'])
@@ -240,7 +263,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             return False
 
-    def create_out_sockets(self, connections, timeout, ip):
+    def create_out_sockets(self, connections, timeout, ip, client_socket):
         self.create_out_data_socket(connections, timeout, ip)
         self.create_out_ack_socket(connections, timeout, ip)
 
@@ -260,7 +283,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             received_filename = self.process_config['received_filename']
             file_path = os.path.join(directory, received_filename)
 
-            write_thread = threading.Thread(args=(file_path, self.received_data_buffer, self.expected_hash, self.process_config['hash_method']),
+            write_thread = threading.Thread(args=(file_path, self.received_data_buffer, self.expected_hash, self.process_config['hash_method'], client_socket, self.out_ack_socket,),
                                             target=self.write_to_file, name="WriteToFileThread")
             write_thread.start()
 
@@ -270,4 +293,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             receive_thread.start()
 
             write_thread.join()
+            logging.info(pc.PrintColor.print_in_green_back(
+                f"Write thread joined"))
             receive_thread.join()
+            logging.info(pc.PrintColor.print_in_green_back(
+                f"Receive thread joined"))

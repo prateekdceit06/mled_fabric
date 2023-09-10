@@ -45,14 +45,14 @@ if __name__ == "__main__":
             try:
                 choice = int(input("\nSelect a file by entering its number: "))
             except ValueError:
-                flag = True
+                flag = False
                 print("Please enter a valid number!")
                 continue
 
             if 1 <= choice <= len(files_only):
                 master_config_file = files_only[choice - 1]
                 print(f"You selected: {master_config_file}")
-                flag = False
+                flag = True
 
                 ip_list_path = os.path.join(directory, 'ip_list.json')
                 ip_list = utils.read_json_file(ip_list_path)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
                 utils.write_json_file(ip_list, ip_list_path)
             else:
-                flag = True
+                flag = False
                 print("Invalid choice!")
                 continue
             master_config_file_path = os.path.join(
@@ -79,7 +79,7 @@ if __name__ == "__main__":
             server_thread.start()
             server_thread.join()
         except:
-            flag = True
+            flag = False
             print("Something went wrong...")
 
     logging.info("Exiting MLED.")
