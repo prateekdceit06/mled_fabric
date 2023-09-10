@@ -41,9 +41,11 @@ if __name__ == "__main__":
 
             for index, file in enumerate(files_only, 1):
                 print(f"[{index}] {file}")
+            print(f"[{len(files_only) + 1}] Exit")
 
             try:
-                choice = int(input("\nSelect a file by entering its number: "))
+                choice = int(
+                    input("\nSelect a file by entering its number or choose Exit: "))
             except ValueError:
                 flag = False
                 print("Please enter a valid number!")
@@ -60,6 +62,9 @@ if __name__ == "__main__":
                 ip_list['master_config_file'] = master_config_file
 
                 utils.write_json_file(ip_list, ip_list_path)
+            elif choice == len(files_only) + 1:  # User chose to exit
+                print("Exiting...")
+                break
             else:
                 flag = False
                 print("Invalid choice!")
