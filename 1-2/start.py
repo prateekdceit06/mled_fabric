@@ -39,6 +39,7 @@ if __name__ == '__main__':
     while True:
 
         try:
+            terminate_event.clear()
             choice = int(input("Enter 1 to start sending file or 2 to exit: "))
         except ValueError:
             print("Please enter a valid number!")

@@ -50,7 +50,7 @@ class Server:
                 with self.sockets_lock:
                     time.sleep(10)
                     for client_socket in list(self.open_sockets):
-                        # client_socket.sendall(("KILL").encode('utf-8'))
+                        # client_socket.sendall(("DONE").encode('utf-8'))
                         self.open_sockets.remove(client_socket)
                         client_socket.close()
 

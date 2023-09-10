@@ -428,5 +428,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             for sock in self.socket_list:
                 getattr(self, sock).close()
+
         else:
             sys.exit(1)

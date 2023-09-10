@@ -392,16 +392,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             receive_data_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Receive data thread joined"))
+                "Receive data thread ended execution"))
             prepare_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Prepare thread joined"))
+                "Prepare thread ended execution"))
             send_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Send thread joined"))
+                "Send thread ended execution"))
             receive_ack_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Receive ack thread joined"))
+                "Receive ack thread ended execution"))
 
             done_msg = ("DONE").encode('utf-8')
 

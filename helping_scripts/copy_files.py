@@ -8,7 +8,7 @@ base_dir = "/home/prateek/Documents/FABRIC/mled_fabric"
 folders = ["1-1", "1-2", "1-3", "1-4",
            "1-5", "2-1", "2-3", "2-5", "3-1", "3-5"]
 files_to_copy = ["config.py", "master_config.py", "process_config.py", "checksum.py", "crc.py", "circular_buffer.py",
-                 "utils.py", "ip_list_config.py", "process.py", "header.py", "packet.py", "send_receive.py"]
+                 "utils.py", "ip_list_config.py", "process.py", "header.py", "packet.py", "send_receive.py", "start.py"]
 
 
 def copy_files(source_folder, dest_folder, files):

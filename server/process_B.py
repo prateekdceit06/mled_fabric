@@ -60,6 +60,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             self.handle_data(out_ack_socket, data_to_forward, packet_to_ack, received_src,
                              received_dest, received_seq_num, received_buffer_not_full_condition, received_data_buffer, received_check_value_data)
 
+        time.sleep(10)
+        for sock in self.socket_list:
+            getattr(self, sock).close()
+
     def receive_packets(self, in_socket, out_ack_socket):
         data_to_forward = b''
         packet_to_ack = []
@@ -182,14 +186,17 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         else:
             logging.info(pc.PrintColor.print_in_green_back(
                 f"File is verified successfully"))
-
+        logging.info(pc.PrintColor.print_in_red_back(
+            "Sending DONE signal to manager process."))
         client_socket.sendall(("DONE").encode("utf-8"))
+        logging.info(pc.PrintColor.print_in_red_back(
+            "Sending DONE ack to other processes."))
         self.send_ack(0, (self.process_config['name']).encode('utf-8'),
                       (self.process_config['left_neighbor'].encode('utf-8')), 5, out_ack_socket)
-        control_msg = client_socket.recv(4).decode('utf-8')
-        time.sleep(10)
-        logging.info(
-            f"Received {control_msg} from manager.")
+        # control_msg = client_socket.recv(4).decode('utf-8')
+        # time.sleep(10)
+        # logging.info(
+        #     f"Received {control_msg} from manager.")
 
     def send_ack(self, seq_num, src, dest, type, out_ack_socket):
         time.sleep(self.process_config['pause_time_before_ack'])
@@ -294,7 +301,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
             write_thread.join()
             logging.info(pc.PrintColor.print_in_green_back(
-                f"Write thread joined"))
+                f"Write thread ended execution"))
             receive_thread.join()
             logging.info(pc.PrintColor.print_in_green_back(
-                f"Receive thread joined"))
+                f"Receive thread ended execution"))

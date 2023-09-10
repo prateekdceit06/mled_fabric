@@ -458,16 +458,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             # Optionally, if you want the main thread to wait for these threads to finish (though in your case they have infinite loops)
             receive_data_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Receive data thread joined"))
+                "Receive data thread ended execution"))
             prepare_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Prepare thread joined"))
+                "Prepare thread ended execution"))
             send_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Send thread joined"))
+                "Send thread ended execution"))
             receive_ack_thread.join()
             logging.info(pc.PrintColor.print_in_red_back(
-                "Receive ack thread joined"))
+                "Receive ack thread ended execution"))
 
             done_msg = ("DONE").encode('utf-8')
 
@@ -485,3 +485,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             size_of_chunk, 0, errors, last_packet)
             packet = Packet(header, done_msg)
             super().send_data(self.out_data_socket, packet)
+
+            time.sleep(10)
+
+            for sock in self.socket_list:
+                getattr(self, sock).close()
