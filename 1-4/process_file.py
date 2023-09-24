@@ -112,6 +112,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
             data_to_forward, packet_to_ack, received_src, received_dest, received_seq_num, received_check_value_data = self.receive_packets(
                 in_socket, out_ack_socket)
 
+            # logging.info(pc.PrintColor.print_in_red_back(
+            #     f"Received chunk {received_seq_num} of size {len(data_to_forward)} from {received_src} (DATA TO FORWARD): {data_to_forward}"))
+
             try:
                 if data_to_forward.decode('utf-8') == 'DONE':
                     self.terminate_event.set()
@@ -139,6 +142,9 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
         while True:
             received_seq_num, received_src, received_dest, received_check_value_data, received_chunk_data, received_ack_byte, fixed_data, received_errors_data, received_last_packet = super().receive_data(in_socket)
             packet_to_ack.append(received_seq_num)
+
+            # logging.info(pc.PrintColor.print_in_green_back(
+            #     f"Received chunk {received_seq_num} of size {len(data_to_forward)} from {received_src} (received_chunk_data): {received_chunk_data}"))
 
             try:
                 if received_chunk_data.decode() == 'DONE':
@@ -356,6 +362,15 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 accepted_packets_in_flight = [(self.last_packet_acked + 1 + i) % (
                     2 * self.process_config['window_size']) for i in range(self.process_config['window_size'])]
                 if packet is None or seq_num_of_packet_to_send not in accepted_packets_in_flight:
+                    # logging.info(pc.PrintColor.print_in_red_back(
+                    #     f"Could not find packet with seq num: {seq_num_of_packet_to_send}"))
+
+                    # logging.info(pc.PrintColor.print_in_green_back("Sending data buffer:" +
+                    #                                                sending_data_buffer.print_buffer()))
+                    # time.sleep(1)
+                    # input()
+
+                    # last_sent_seq_num += 1
                     continue
 
             if self.packet_error_count > 0 and (packet_number % self.packet_error_count) == 0:
@@ -384,6 +399,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def receive_ack(self, in_data_socket, out_data_socket, out_ack_socket, out_addr,
                     sending_data_buffer_condition, sending_data_buffer, sending_buffer_not_full_condition):
+
+        positive_ack_seq_num = {}
+        expected_ack = -1
+
         while True:
             # time.sleep(0.1)
             received_seq_num, received_src, received_dest, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
@@ -415,7 +434,26 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             logging.info(pc.PrintColor.print_in_red_back(
                                 f"could not find packet with seq num: {received_seq_num}"))
 
-                        self.last_packet_acked = received_seq_num
+                        logging.info(pc.PrintColor.print_in_red_back(
+                            f"Expected ack BEFORE = {expected_ack+1}"))
+                        logging.info(pc.PrintColor.print_in_red_back(
+                            f"Positive ack list BEFORE: {positive_ack_seq_num}"))
+
+                        key = received_seq_num
+
+                        while key in positive_ack_seq_num:
+                            key += self.process_config['window_size']
+
+                        positive_ack_seq_num[key] = received_seq_num
+
+                        while (expected_ack + 1) in positive_ack_seq_num:
+                            expected_ack += 1
+                            self.last_packet_acked = positive_ack_seq_num[expected_ack]
+
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Expected ack AFTER = {expected_ack+1}"))
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Positive ack list AFTER: {positive_ack_seq_num}"))
 
                     elif received_ack_byte == 3:
                         self.urgent_send_in_progress = True

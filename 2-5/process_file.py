@@ -294,6 +294,11 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
     def receive_ack(self, in_data_socket, out_data_socket, out_ack_socket, out_addr,
                     sending_data_buffer_condition, sending_data_buffer, sending_buffer_not_full_condition):
+
+        positive_ack_seq_num = {}
+        index = 0
+        expected_ack = -1
+
         while True:
             # time.sleep(0.1)
             received_seq_num, received_src, received_dest, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
@@ -325,7 +330,16 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             logging.info(pc.PrintColor.print_in_red_back(
                                 f"could not find packet with seq num: {received_seq_num}"))
 
-                        self.last_packet_acked = received_seq_num
+                        key = received_seq_num
+
+                        while key in positive_ack_seq_num:
+                            key += self.process_config['window_size']
+
+                        positive_ack_seq_num[key] = received_seq_num
+
+                        while (expected_ack + 1) in positive_ack_seq_num:
+                            expected_ack += 1
+                            self.last_packet_acked = positive_ack_seq_num[expected_ack]
 
                     elif received_ack_byte == 3:
                         packet = self.sending_data_buffer.get_by_sequence(

@@ -166,7 +166,8 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 packet = Packet(header, chunk)
 
                 with self.sending_buffer_not_full_condition:  # Use the condition for the sending buffer
-                    while self.sending_data_buffer.is_full() and self.terminate_event.is_set():  # Wait if the sending buffer is full
+                    # Wait if the sending buffer is full
+                    while self.sending_data_buffer.is_full() and not self.terminate_event.is_set():
                         logging.info(pc.PrintColor.print_in_yellow_back(
                             f"No space in sending buffer"))
                         self.sending_buffer_not_full_condition.wait(5)
@@ -232,6 +233,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                 last_sent_seq_num = packet.seq_num
 
     def receive_ack(self, in_data_socket, out_data_socket, out_ack_socket, out_addr):
+
+        positive_ack_seq_num = {}
+        expected_ack = -1
+
         while True:
             # time.sleep(0.1)
             received_seq_num, received_src, received_dest, _, received_size_of_chunk, received_ack_byte, _, _, _ = super(
@@ -262,7 +267,26 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             logging.info(pc.PrintColor.print_in_red_back(
                                 f"could not find packet with seq num: {received_seq_num}"))
 
-                        self.last_packet_acked = received_seq_num
+                        logging.info(pc.PrintColor.print_in_red_back(
+                            f"Expected ack BEFORE = {expected_ack+1}"))
+                        logging.info(pc.PrintColor.print_in_red_back(
+                            f"Positive ack list BEFORE: {positive_ack_seq_num}"))
+
+                        key = received_seq_num
+
+                        while key in positive_ack_seq_num:
+                            key += self.process_config['window_size']
+
+                        positive_ack_seq_num[key] = received_seq_num
+
+                        while (expected_ack + 1) in positive_ack_seq_num:
+                            expected_ack += 1
+                            self.last_packet_acked = positive_ack_seq_num[expected_ack]
+
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Expected ack AFTER = {expected_ack+1}"))
+                        logging.info(pc.PrintColor.print_in_green_back(
+                            f"Positive ack list AFTER: {positive_ack_seq_num}"))
 
                     elif received_ack_byte == 3:
                         self.urgent_send_in_progress = True
@@ -275,9 +299,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                                 f"Requesting the socket to send packet {received_seq_num} again"))
                             packet = self.sending_data_buffer.get_by_sequence(
                                 received_seq_num)
-                            logging.info(packet)
 
+                            # logging.info(packet)
                             super().send_data(out_data_socket, packet)
+
                             logging.info(pc.PrintColor.print_in_purple_back(
                                 f"Re-sent packet {received_seq_num} of size {len(packet.chunk)} to {received_src}"))
                             # logging.info(pc.PrintColor.print_in_cyan_back("Sending data buffer after sending" +
