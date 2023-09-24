@@ -3,7 +3,7 @@
     "server_port": 50000,
     "connections_manager_process": 10,
     "timeout_manager_process": 30,
-    "master_config_file": "master_config_traditional.json",
+    "master_config_file": "master_config_MLED.json",
     "clients": [
         {
             "name": "1-1",

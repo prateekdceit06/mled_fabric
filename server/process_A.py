@@ -12,6 +12,7 @@ from packet import Packet
 from utils import logging_format as logging_format
 import os
 import print_colour as pc
+import subprocess
 
 import logging
 
@@ -246,7 +247,7 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     else:
                         logging.info(pc.PrintColor.print_in_red_back(
                             f"could not find packet with seq num: {received_seq_num}"))
-                        
+
                     key = received_seq_num
 
                     while key in positive_ack_seq_num:
@@ -257,7 +258,6 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                     while (expected_ack + 1) in positive_ack_seq_num:
                         expected_ack += 1
                         self.last_packet_acked = positive_ack_seq_num[expected_ack]
-
 
                     # logging.info(pc.PrintColor.print_in_green_back(
                     #     f"Last packet acked is {self.last_packet_acked}"))
@@ -377,6 +377,24 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
 
         path = os.path.abspath(__file__)
         directory = os.path.dirname(path)
+        command = [
+            "scp",
+            "-o", "StrictHostKeyChecking=no",
+            "-i", "/home/ubuntu/mledASU",
+            "asarabi3@192.168.1.1:/home/collection_*",
+            "/home/ubuntu/file1"
+        ]
+
+        result = subprocess.run(command, capture_output=True, text=True)
+
+        # Check if the command was successful
+        if result.returncode == 0:
+            print("Command executed successfully!")
+        else:
+            print("Command failed!")
+            print("Output:", result.stdout)
+            print("Error:", result.stderr)
+
         filename = self.process_config['filename']
         file_path = os.path.join(directory, filename)
 

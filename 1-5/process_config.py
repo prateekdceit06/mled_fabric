@@ -89,6 +89,10 @@ class ProcessConfigHandler:
         if self.process['process_type'] == 'A':
             process_config_to_write["hash_method"] = master_config['hash_method']
             process_config_to_write["filename"] = master_config['filename']
+            process_config_to_write["asu_server_ip"] = master_config['asu_server_ip']
+            process_config_to_write["asu_server_username"] = master_config['asu_server_username']
+            process_config_to_write["asu_server_full_filename"] = master_config['asu_server_full_filename']
+            process_config_to_write["asu_server_private_key_name"] = master_config['asu_server_private_key_name']
 
         if self.process['process_type'] == 'B':
             process_config_to_write["hash_method"] = master_config['hash_method']
