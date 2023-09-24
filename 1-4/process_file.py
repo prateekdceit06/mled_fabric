@@ -434,10 +434,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             logging.info(pc.PrintColor.print_in_red_back(
                                 f"could not find packet with seq num: {received_seq_num}"))
 
-                        logging.info(pc.PrintColor.print_in_red_back(
-                            f"Expected ack BEFORE = {expected_ack+1}"))
-                        logging.info(pc.PrintColor.print_in_red_back(
-                            f"Positive ack list BEFORE: {positive_ack_seq_num}"))
+                        # logging.info(pc.PrintColor.print_in_red_back(
+                        #     f"Expected ack BEFORE = {expected_ack+1}"))
+                        # logging.info(pc.PrintColor.print_in_red_back(
+                        #     f"Positive ack list BEFORE: {positive_ack_seq_num}"))
 
                         key = received_seq_num
 
@@ -450,10 +450,10 @@ class ProcessHandler(ProcessHandlerBase, SendReceive):
                             expected_ack += 1
                             self.last_packet_acked = positive_ack_seq_num[expected_ack]
 
-                        logging.info(pc.PrintColor.print_in_green_back(
-                            f"Expected ack AFTER = {expected_ack+1}"))
-                        logging.info(pc.PrintColor.print_in_green_back(
-                            f"Positive ack list AFTER: {positive_ack_seq_num}"))
+                        # logging.info(pc.PrintColor.print_in_green_back(
+                        #     f"Expected ack AFTER = {expected_ack+1}"))
+                        # logging.info(pc.PrintColor.print_in_green_back(
+                        #     f"Positive ack list AFTER: {positive_ack_seq_num}"))
 
                     elif received_ack_byte == 3:
                         self.urgent_send_in_progress = True
